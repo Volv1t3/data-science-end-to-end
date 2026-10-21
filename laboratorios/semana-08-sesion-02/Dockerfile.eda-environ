@@ -1,0 +1,17 @@
+#! -------------------------------------
+#! Santiago Arellano 00328370
+#! Semana 08 - Sesión 02 - EDA Implementacion
+#! -------------------------------------
+
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY ./requirements.txt .
+
+RUN pip install -r requirements.txt
+
+COPY . .
+
+CMD ["python", "EDA.py"]
