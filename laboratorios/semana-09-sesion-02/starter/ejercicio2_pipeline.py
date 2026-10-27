@@ -27,7 +27,7 @@ y = viajes["tarifa"]
 
 # TODO 1: divide X e y en entrenamiento (80%) y prueba (20%), con
 # random_state=42.
-X_ent, X_prueba, y_ent, y_prueba = None, None, None, None
+X_ent, X_prueba, y_ent, y_prueba = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # TODO 2: arma un Pipeline para las columnas NUMERICAS (imputar con la
 # mediana, despues escalar) y otro para las CATEGORICAS (imputar con el
