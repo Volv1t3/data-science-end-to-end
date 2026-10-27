@@ -1,0 +1,5 @@
+modelo,mae_entrenamiento,mae_prueba,brecha,segundos
+Dummy Regressor,13.1998,12.5308,-0.669,0.006
+Decision Tree Regressor,0.0029,1.7017,1.6988,0.014
+Decision Tree Regressor (max_depth=8),1.0098,1.2728,0.263,0.01
+Random Forest Regressor,0.4743,1.2989,0.8245,1.192
