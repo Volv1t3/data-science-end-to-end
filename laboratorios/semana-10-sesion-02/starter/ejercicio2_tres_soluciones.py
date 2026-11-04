@@ -98,15 +98,18 @@ def escribir_prompt():
 
 
 # TODO 1: la red neuronal del Ejercicio 1, con el nombre "red neuronal".
-red = None
+red = evaluar(
+    "red neuronal",
+    MLPRegressor(hidden_layer_sizes=(64,), max_iter=2000, random_state=42),
+)
 
 # TODO 2: el ensamblaje del Ejercicio 1, con el nombre "gradient boosting".
-ensamblaje = None
+ensamblaje = evaluar("gradient boosting", GradientBoostingRegressor(random_state=42))
 
 # TODO 3: mae_red_muestra y mae_ensamblaje_muestra, el error absoluto
 # medio de cada modelo sobre los 20 viajes de muestra.
-mae_red_muestra = None
-mae_ensamblaje_muestra = None
+mae_red_muestra = mean_absolute_error(y_muestra, red.predict(muestra))
+mae_ensamblaje_muestra = mean_absolute_error(y_muestra, ensamblaje.predict(muestra))
 
 prompt = escribir_prompt()
 print()
@@ -114,17 +117,24 @@ print("prompt_llm.txt escrito:", len(prompt), "caracteres")
 
 # Paso 4: predicciones_llm, la lista de 20 numeros de respuestas_llm.txt,
 # y mae_llm, su error absoluto medio sobre los mismos 20 viajes.
-predicciones_llm = None
-mae_llm = None
+with open("respuestas_llm.txt", encoding="utf-8") as archivo:
+    predicciones_llm = [float(linea) for linea in archivo if linea.strip()]
+mae_llm = mean_absolute_error(y_muestra, predicciones_llm)
 
 # Paso 5: el costo de estimar 10 000 viajes al mes con el LLM, en
 # dolares, en costo_10000. Busca en la pagina de precios del proveedor
 # que usaste el precio por millon de tokens de entrada y anotalo abajo.
 # Cuenta un token cada 4 caracteres, y un prompt como este por cada 20
 # viajes; ignora los tokens de salida.
-PRECIO_POR_MILLON_DE_TOKENS = None
-costo_10000 = None
-
+# Precio de entrada de GPT-4.1 nano en dolares por un millon de tokens.
+PRECIO_POR_MILLON_DE_TOKENS = 10
+tokens_por_prompt = len(prompt) / 4
+prompts_por_mes = 10_000 / len(muestra)
+costo_10000 = tokens_por_prompt * prompts_por_mes * PRECIO_POR_MILLON_DE_TOKENS / 1_000_000
+print(f"Costo de estimar 10,000 viajes al mes con el LLM: ${costo_10000:.2f}")
+print(f"  (precio por millon de tokens: ${PRECIO_POR_MILLON_DE_TOKENS})")
+print(f"  (tokens por prompt: {tokens_por_prompt:.2f})")
+print(f"  (prompts por mes: {prompts_por_mes:.2f})")
 
 def comprobar(numero, condicion):
     if condicion:
