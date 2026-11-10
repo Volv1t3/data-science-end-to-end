@@ -23,7 +23,8 @@ y = viajes["tarifa"]
 print("Version del companero")
 imputador = SimpleImputer(strategy="median")
 escalador = StandardScaler()
-X_preparado = escalador.fit_transform(imputador.fit_transform(X))
+X_preparado = escalador.fit_transform(imputador.fit_transform(X)) #Imputing with the entire data set instead of the
+# partition
 X_ent_fuga, X_prueba_fuga, y_ent_fuga, y_prueba_fuga = train_test_split(
     X_preparado, y, test_size=0.2, random_state=42)
 modelo_fuga = LinearRegression().fit(X_ent_fuga, y_ent_fuga)
@@ -34,8 +35,7 @@ print(f"Error absoluto medio en prueba: {mae_fuga:.4f}")
 
 print()
 print("Version correcta")
-# TODO 1: divide X e y en entrenamiento (80%) y prueba (20%), con
-# random_state=42, antes de calcular cualquier estadistica.
+
 X_ent, X_prueba, y_ent, y_prueba = X, X, y, y
 
 # TODO 2: un Pipeline con tres pasos: imputar con la mediana, escalar y
