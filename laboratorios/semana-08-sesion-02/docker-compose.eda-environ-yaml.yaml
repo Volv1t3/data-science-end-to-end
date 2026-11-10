@@ -1,0 +1,10 @@
+services:
+    eda-environ:
+        container_name: eda-environ
+        build:
+          context: ./starter
+          dockerfile: ../Dockerfile.eda-environ
+          tags:
+            - semana-08-sesion-02:19-oct-2026
+        volumes:
+        - ./figures:/app/figures
