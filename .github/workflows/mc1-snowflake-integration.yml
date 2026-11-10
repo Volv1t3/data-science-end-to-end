@@ -73,7 +73,7 @@ jobs:
             --env SNOWFLAKE_DATABASE --env SNOWFLAKE_SCHEMA \
             --env SNOWFLAKE_OBT_SCHEMA --env SNOWFLAKE_WAREHOUSE --env SNOWFLAKE_ROLE \
             mc1-spark-integration:ci \
-            python exportar_muestra_mc1.py \
+            /usr/bin/python3 exportar_muestra_mc1.py \
               --output /out/mc1_muestra_experimentos.csv \
               --manifest /out/mc1_muestra_experimentos.manifest.json \
               --max-rows "$MC1_SAMPLE_MAX_ROWS"
@@ -86,6 +86,6 @@ jobs:
             --volume "$RUNNER_TEMP:/out:ro" \
             --env PYTHONPATH=/workspace/proyecto/modelado \
             mc1-spark-integration:ci \
-            python verificar_muestra_mc1.py \
+            /usr/bin/python3 verificar_muestra_mc1.py \
               --csv /out/mc1_muestra_experimentos.csv \
               --manifest /out/mc1_muestra_experimentos.manifest.json
