@@ -51,12 +51,18 @@ def test_columnas_de_salida():
 def test_una_prediccion_por_viaje():
     viajes = viajes_de_prueba()
     predicciones = predecir_lote(modelo_de_prueba(), viajes, "abc123")
-    # TODO 4: comprueba que hay una fila por viaje, con los mismos id_viaje y
+    # [DONE] 4: comprueba que hay una fila por viaje, con los mismos id_viaje y
     # en el mismo orden.
+    #? A single row per trip
+    assert len(predicciones) == len(viajes)
+    #? Same order and same ids
+    assert predicciones["id_viaje"].tolist() == viajes["id_viaje"].tolist()
 
 
 def test_viaje_incompleto_tambien_se_estima():
     predicciones = predecir_lote(modelo_de_prueba(), viajes_de_prueba(), "abc123")
-    # TODO 5: el viaje 12 llega sin pasajeros. Comprueba que ningun viaje se
+    # [DONE] 5: el viaje 12 llega sin pasajeros. Comprueba que ningun viaje se
     # queda sin tarifa estimada, y que todas las filas llevan la version
     # del modelo que se paso.
+    assert predicciones["tarifa_estimada"].notna().all()
+    assert predicciones["version_modelo"].eq("abc123").all()
