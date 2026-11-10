@@ -24,57 +24,36 @@ Los laboratorios de hoy son notebooks, como los de la Semana 10, y la preparaci�
 
 **Si trabajas en tu laptop sin el contenedor (Opción B del README):** instala con `pip install -r requirements.txt` y, en una terminal aparte desde la raíz de tu fork, levanta el mismo servidor con `mlflow server --backend-store-uri sqlite:///.mlflow/mlflow.db --artifacts-destination .mlflow/artefactos --port 5050`. Antes de abrir los notebooks, define la variable `MLFLOW_TRACKING_URI=http://127.0.0.1:5050`. Sin esa variable, MLflow guarda el registro en una carpeta `mlruns` al lado de cada notebook, sin servidor: los notebooks también funcionan, pero cada carpeta tiene su propio registro.
 
-## Antes de empezar
-
-A partir de la lectura previa:
-
-**Según el artículo, ¿qué tres cosas hay que versionar en un proyecto de machine learning, y con qué herramienta versiona el autor cada una?**
-
-_(tu respuesta)_
-
-**¿Por qué no alcanza con Git para versionar los datos?**
-
-_(tu respuesta)_
-
-## Pregunta de apertura
-
-Dos compañeros reportan errores distintos para "el mismo" gradient boosting sobre los mismos datos de taxis. ¿Qué tendrías que saber de cada corrida para descubrir por qué no coinciden?
-
-_(tu respuesta)_
-
 ## Ejercicio 1: registrar cada corrida con MLflow
 
 Notebook: [`starter/ejercicio1_registrar_corridas.ipynb`](./starter/ejercicio1_registrar_corridas.ipynb), sobre [`starter/viajes_features.csv`](./starter/viajes_features.csv), con la preparación de [`starter/preparacion_taxis.py`](./starter/preparacion_taxis.py). Entrena el bosque y el gradient boosting de la Semana 10, y después la corrida de un compañero. Los 4 `TODO` son el registro. Córrelo completo una vez antes de tocar nada (**Run All**).
 
 **Respuesta 1 (antes de los TODO):** sin resolver, el notebook entrena los tres modelos e imprime sus errores. ¿Cuál de los dos gradient boosting tiene razón? ¿Qué parte de la salida te permite saberlo, y qué parte no?
 
-_(tu respuesta)_
+Tecnicamente ninguno de los dos modelos tiene razon o no, en si ambos modelos estan configurados en terminos de hiperparametros mediante los defaults del sistema, y con el mismo random state. Claramente la unica diferencia entre estos corresponde a la division de los sets de entrenamiento y prueba del modelo, lo que resultara siempre en que los  modelos sean diferentes, esto no significa que el modelo del companero sea mejor o peor, son diferentes procesos de entrenamiento completamente.
 
 **Respuesta 2 (TODO 2 y 3):** de todo lo que se puede registrar de una corrida, ¿qué crees que explica la diferencia entre los dos gradient boosting? ¿Qué parámetro esperas ver distinto en la tabla del paso 5?
 
-_(tu respuesta)_
+Dado que no cambia ningun parametro interno, el principal foco de cambio que puede resultar en metricas finales distintas corresponde a la semilla usada para la division de los datos en cada uno de los modelos entrenados. Se esperaria ver diferente MAE tanto en evaluacion como en entrenamiento.
 
 **Respuesta 3 (TODO 4):** el registro ya tiene los parámetros y las métricas. ¿Para qué guardar además el modelo entrenado?
 
-_(tu respuesta)_
+Al guardar el modelo entrenado se tiene una *snapshot* completa de todo el estado, no solo de los parametros que llevaron a ese modelo, esto permite comparar modelos de mejor manera sin tener que reentrenar e introducir variaciones.
 
 **Lo que mostró la tabla del paso 5:**
 
-_(anota el error en prueba, la semilla de la división y la huella de los datos de cada corrida)_
-
-## Durante el ConcepTest
-
-**Tu voto, antes de discutir en pareja** (A, B, C o D):
-
-_(tu voto)_
-
-**Tu razonamiento:**
-
-_(tu respuesta)_
-
-**Después de discutir en pareja, ¿cambiaste de voto? ¿Por qué?**
-
-_(tu respuesta)_
+```
+                          run_id tags.mlflow.runName params.semilla_division params.huella_datos params.n_estimators  metrics.mae_prueba  metrics.segundos
+6628e32562b949d583b3fda8c8c5c095   gradient boosting                       7        4800204d50c0                 100            1.186727          0.127537
+1858f8478ac144d888faea521baaba11   gradient boosting                       7        4800204d50c0                 100            1.186727          0.123921
+f7ade64e88e84e39bce25c56570f85d7   gradient boosting                       7        4800204d50c0                 100            1.186727          0.134331
+1ef6d73a1dc8435b86cde889a7b04e2d   gradient boosting                      42        4800204d50c0                 100            1.275352          0.133897
+82052ce628ba465aa9e79acce49d49ae   gradient boosting                      42        4800204d50c0                 100            1.275352          0.124658
+0a49a91e59ff41feb408201f71bbf000   gradient boosting                      42        4800204d50c0                 100            1.275352          0.124264
+1e08384a8de5477e8271c7c204cdba28    bosque aleatorio                      42        4800204d50c0                 200            1.301589          0.770501
+61315af375db4e2c89d0f028f3de393d    bosque aleatorio                      42        4800204d50c0                 200            1.301589          0.777207
+f5cbb7eafbc44945a13da34abd4e0018    bosque aleatorio                      42        4800204d50c0                 200            1.301589          0.787670
+```
 
 ## Ejercicio 2: comparar con evidencia y elegir
 
@@ -82,19 +61,18 @@ Solo o en pareja. Notebook: [`starter/ejercicio2_comparar_y_elegir.ipynb`](./sta
 
 **Respuesta 1:** ¿qué modelo quedó primero en el registro, y por cuánto le gana al segundo?
 
-_(tu respuesta)_
+El primer modelo fue la red neuronal, que le gano al segundo con  0.09 puntos en el MAE de prueba
+usado para la seleccion.
 
 **Respuesta 2:** el paso 5 carga el modelo ganador desde el registro y vuelve a calcular su error. ¿Qué te garantiza que coincida con el número registrado? ¿Qué no te garantiza sobre ese modelo?
 
-_(tu respuesta)_
+En este caso se garantiza tener el resultado identico dado que el modelo usado para la validacion antes de guardar es el mismo que se carga, MLFlow guarda el modelo en su totalidad en un archivo de tipo *pickle* y nos permite cargar el modelo completo, ya entrenado, para simplemente volver a ejecutarlo.
 
 **Respuesta 3:** si mañana alguien cambia una fila de `viajes_features.csv` y vuelve a entrenar, ¿cómo lo notarías mirando solo el registro?
 
-_(tu respuesta)_
+Veriamos un HASH diferente que represente a los datos, dado que el hash se calcula en base a todos los datos del archivo, un cambio en un byte del archivo resultaria en un hash diferente y por tanto un identificador claro de que los datos fueron modificados.
 
 **Si terminas antes:** abre la interfaz de MLflow (pestaña **Ports**, puerto 5050), entra al experimento `tarifa-taxis-comparacion`, selecciona las cinco corridas y compáralas lado a lado con **Compare**. Además del error, ¿qué te dice el registro de la red neuronal que no te diría una tabla escrita a mano?
-
-_(tu respuesta)_
 
 ## Ejercicio 3: el registro de tu proyecto
 
