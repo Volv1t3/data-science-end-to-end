@@ -24,17 +24,23 @@ A partir de la lectura previa:
 
 **Según el artículo, ¿qué distingue un sistema de predicción batch de uno online? Da un ejemplo de cada uno.**
 
-_(tu respuesta)_
+**`Lectura no disponible, enlace dañado.`**
 
 **¿Qué limitación tiene el sistema batch que el online resuelve, y qué cuesta resolverla?**
 
-_(tu respuesta)_
+**`Lectura no disponible, enlace dañado.`**
 
 ## Pregunta de apertura
 
 La app de taxis usa dos modelos: uno estima la tarifa antes de pedir el viaje, otro decide si un pago es fraude. ¿Alguno de los dos se podría calcular una vez por noche para todos los casos posibles? ¿Cuál tiene que responder en el momento, y en cuánto tiempo?
 
-_(tu respuesta)_
+En este caso, ninguno de los dos debería de ser calculado por la noche. En el caso de predecir la tarifa de un viaje antes de pedirlo necesita información que solo se obtiene cuando un viaje se ha solicitado, lo que involucra que el proceso de predicción debe iniciar al mismo tiempo que una nueva solicitud de una carrera en base de los atributos temporales, geográficos, entre otros, disponibles al momento de la solicitud. Si se implementara un modelo de *batch prediction* para las tarifas de los taxis, las tarifas predichas no serían útiles para nadie, porque se prediciría con data previa, con viajes ya terminados, y a menos que exista un mecanismo de reajuste del cobro posterior al viaje, la predicción es inutil si el modelo trabaja en tiempo real. 
+
+La idea de un modelo *batch prediction* si resulta útil si tratamos el problema de predecir en la noche no como un proceso hacia el cliente, pero un proceso de optimización adicional. Si el modelo predice, pero un sistema *onboard* como un taxímetro trabaja para determinar el costo real de la ruta en base del recorrido y velocidad del vehículo, entonces podríamos usar el sistema *onboard* como una *source of truth* y usar el estimado predicho por la noche como una guía para evaluar el error del modelo y utilizar los casos reales como fuente de optimización y reentrenamiento del modelo.
+
+En el caso de la predicción de fraude, la mayoría de sistemas que implementan esta tecnología realizan la predicción segundos después de una compra, por lo que para las transacciones de pagos para un viaje se requeriría el mismo nivel de interactividad y rapidéz del modelo de predicción. En este caso, este modelo también tiene que ser en tiempo real, con los datos de una transacción realizada, y no podría usarse por la noche porque una transacción fraudolenta se espera ser marcada y notificada lo más rápido posible.
+
+Ambos casos tienen que responder relativamente rápido. Dependiendo del modelo de aplicación de la predicción de la trafia es posible que este modelo tenga que responder lo más rápido posible si su predicción se usa como un estimado que se muestra al usuario, pero puede demorarse un poco si necesita información adicional sobre el trayecto para presentar un estimado. En el caso de la predicción de fraudes la información tiene que ser aún más rápida, como un sistema bancario la transacción debe ser notificada una vez se ha ejecutado para que se pueda tomar acciones correctivas inmediatamente.
 
 ## Ejercicio 1: la tarifa de los viajes programados, por lotes
 
@@ -50,57 +56,79 @@ pytest -v
 
 **Respuesta 1 (antes de los TODO):** sin resolver, `predecir_lote.py` escribe una tabla con una sola columna, y `pytest` dice `1 failed, 2 passed`. ¿Cómo pueden pasar dos pruebas si el script no estima ninguna tarifa?
 
-_(tu respuesta)_
+**`Realize la programación sin ejectuar esta prueba`**
 
 **Respuesta 2 (TODO 1 y 2):** 4 de los 60 viajes no tienen pasajeros y 2 no tienen método de pago. ¿Esperas que el script falle en esos viajes, que los salte, o que les estime una tarifa? ¿Por qué?
 
-_(tu respuesta)_
+Esperaria que el modelo intente predecir una tarifa dependiendo del modelo implementado. Los modelos de árboles son capaces de aprender relaciones entre features hacia el objetivo inclusive cuando tienen valores nulos o faltantes. En el caso de nuestro proyecto, los modelos no tuvieron problema con valores nulos en las columnas de entrenamiento por lo que espero que una predicción se realize inclusive sin estas features disponibles.
 
 **Respuesta 3 (TODO 3):** todas las filas de la tabla llevan la misma `version_modelo`. ¿Para qué guardarla en cada fila?
 
-_(tu respuesta)_
+Cada fila lleva la identificación del modelo porque esta se utiliza como un registro de quien realizó la predicción realizada, en lugar de tener metadata adicional que permita filtrar el modelo utilizado, cada fila mantiene esta información, utilizable para auditar el proceso de predicción realizado en auditorias, etc.
 
 **Respuesta 4 (TODO 4 y 5):** antes de escribir las dos pruebas, ¿qué cambio en `predecir_lote.py` haría fallar la del `TODO 4`? ¿Y la del `TODO 5`?
 
-_(tu respuesta)_
+1. En el caso de que se modifique el modelo y este no tolere los valores nulos, es posible que falle o no prediga en aquellos casos donde existen variables nulas, por lo que un cambio en el modelo podría eliminar la noción del TODO 4 que tenga la misma longitud de predicciones que ingresos, y que tenga la misma cantidad de IDs.
+2. En el caso de que se modifique el modelo, el TODO 5 también corre el riesgo de tener nulos al final en las predicciones, o valores faltantes que no fueron predichos porque el modelo no tolera valores nulos.
 
 **Lo que mostró el lote:**
 
-_(anota la versión del modelo, la tarifa más baja, la más alta, y qué tarifa recibieron los viajes sin pasajeros)_
+```console
+usr/bin/python3.11 /IdeaProjects/data-science-end-to-end/laboratorios/semana-12-sesion-01/starter/ejercicio1/predecir_lote.py 
+Modelo 3154797e1ba6: 60 viajes leidos de viajes_programados.csv, 60 filas en tarifas_estimadas.csv
+ id_viaje  tarifa_estimada version_modelo
+    90001            27.42   3154797e1ba6
+    90002            40.48   3154797e1ba6
+    90003             6.37   3154797e1ba6
+    90004             7.25   3154797e1ba6
+    90005            40.34   3154797e1ba6
 
-## Durante el ConcepTest
-
-**Tu voto, antes de discutir en pareja** (A, B, C o D):
-
-_(tu voto)_
-
-**Tu razonamiento:**
-
-_(tu respuesta)_
-
-**Después de discutir en pareja, ¿cambiaste de voto? ¿Por qué?**
-
-_(tu respuesta)_
+Process finished with exit code 0
+```
 
 ## Ejercicio 2: la cola de revisión de fraude
 
 Solo o en pareja. Carpeta: [`starter/ejercicio2/`](./starter/ejercicio2/). Cada madrugada, [`puntuar_pagos.py`](./starter/ejercicio2/puntuar_pagos.py) calcula la probabilidad de fraude de los 300 pagos de ayer ([`pagos_ayer.csv`](./starter/ejercicio2/pagos_ayer.csv)) con el gradient boosting de la Semana 11, y arma la cola de revisión manual con los pagos que alcanzan el umbral de 0.10 que elegiste ese día. Mismo esqueleto del Ejercicio 1: los pasos 1 a 3 tienen `TODO`; el paso 4 (la cola) y el paso 5 (las pruebas de [`test_puntuar_pagos.py`](./starter/ejercicio2/test_puntuar_pagos.py)) solo tienen un comentario que dice qué hacer. Primero `python entrenar_fraude.py`; después resuelve y corre `python comprobar.py` hasta que los cinco pasos digan `OK`.
 
+```terminaloutput
+/usr/bin/python3.11 /IdeaProjects/data-science-end-to-end/laboratorios/semana-12-sesion-01/starter/ejercicio2/comprobar.py 
+Paso 1: OK
+Paso 2: OK
+Paso 3: OK
+Paso 4: OK
+....                                                                     [100%]
+4 passed in 0.02s
+Paso 5: OK
+
+Process finished with exit code 0
+```
+
 **Respuesta 1:** ¿cuántos pagos quedaron en la cola de revisión? ¿Cuántos fraudes esperarías encontrar en los 300 pagos, si la proporción es la de la Semana 11?
 
-_(tu respuesta)_
+```terminaloutput
+/usr/bin/python3.11 /IdeaProjects/data-science-end-to-end/laboratorios/semana-12-sesion-01/starter/ejercicio2/puntuar_pagos.py 
+Modelo f3038612d4f2: 300 pagos leidos de pagos_ayer.csv, 300 filas en pagos_puntuados.csv
+Cola de revision (umbral 0.1): 26 pagos en cola_revision.csv
+ id_pago  probabilidad_fraude version_modelo
+   70058               0.9984   f3038612d4f2
+   70222               0.9952   f3038612d4f2
+   70063               0.9849   f3038612d4f2
+   70170               0.9820   f3038612d4f2
+   70059               0.9819   f3038612d4f2
+
+Process finished with exit code 0
+```
+
+En este caso tenemos 26 pagos en la cola de revision cuya puntuacion de fraude corresponde a más del 10% del umbral.
 
 **Respuesta 2:** este modelo corre por lotes, una vez al día. ¿Qué pierde la empresa por no evaluar cada pago en el momento en que ocurre? ¿Qué tendría que pasar con la revisión para que eso importe?
 
-_(tu respuesta)_
+La empresa pierde la capacidad de alertar rápidamente a un cliente de un cobro que parece ser sospechoso y fraudolento, si la empresa mantiene esta información y solo la revisa en la mañana luego de un incidente, esta información no ayuda a los clientes, y por tanto puede resultar en alarmas tardías para clientes y la empresa.
 
 **Respuesta 3:** la prueba de la cola de revisión arma su propia tabla de cuatro pagos con probabilidades escritas a mano, en vez de usar el modelo. ¿Qué gana la prueba con eso?
 
-_(tu respuesta)_
+La prueba gana una ejecución completamente diferente de los valores de entrenamiento y prueba ya usados. La prueba permite evidenciar el comportamiento de la cola de revisión, sin utilizar información que ya fue usada dentro de la prueba y pueda resultar en bias hacia los datos de prueba. 
 
-**Si terminas antes:** sube `UMBRAL` a 0.50 y vuelve a correr `puntuar_pagos.py`. ¿Cuántos pagos quedan en la cola? ¿Siguen pasando todas las pruebas? ¿Por qué?
-
-_(tu respuesta)_
 
 ## Ejercicio 3: el despliegue y las pruebas de tu proyecto
 
