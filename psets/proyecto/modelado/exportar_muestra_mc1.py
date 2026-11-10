@@ -7,7 +7,7 @@ import hashlib
 import json
 import os
 import re
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -111,7 +111,7 @@ def exportar_muestra(salida: Path, manifiesto: Path, *, max_filas: int) -> None:
         "columnas": list(datos.columns),
         "csv_sha256": sha256_archivo(salida),
         "sql_sha256": hashlib.sha256(consulta.encode("utf-8")).hexdigest(),
-        "generado_en_utc": datetime.now(UTC).isoformat(),
+        "generado_en_utc": datetime.now(timezone.utc).isoformat(),
     }
     manifiesto.parent.mkdir(parents=True, exist_ok=True)
     manifiesto.write_text(json.dumps(evidencia, indent=2), encoding="utf-8")
