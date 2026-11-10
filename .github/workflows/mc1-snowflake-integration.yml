@@ -59,20 +59,13 @@ jobs:
             --tag mc1-spark-integration:ci \
             pset2-platform/src/main/psets/pset_2/src/res
 
-      - name: Preparar salida escribible para el usuario Spark
-        run: |
-          mkdir -p "$RUNNER_TEMP/mc1-output"
-          chmod 777 "$RUNNER_TEMP/mc1-output"
-
       - name: Extraer muestra acotada desde Snowflake
         run: |
           docker run --rm \
             --workdir /workspace/proyecto/modelado \
             --volume "$GITHUB_WORKSPACE/psets/proyecto:/workspace/proyecto:ro" \
             --volume "$GITHUB_WORKSPACE/pset2-platform/src/main/psets/pset_2/src/main/python/spark/lib:/opt/spark/lib:ro" \
-            --volume "$GITHUB_WORKSPACE/pset2-platform/src/main/psets/pset_2/src/res/config/spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro" \
-            --volume "$GITHUB_WORKSPACE/pset2-platform/src/main/psets/pset_2/src/res/config/spark/spark-env.sh:/opt/spark/conf/spark-env.sh:ro" \
-            --volume "$RUNNER_TEMP/mc1-output:/out" \
+            --volume "$RUNNER_TEMP:/out" \
             --env PYTHONPATH=/opt/spark/python:/opt/spark/python/lib/py4j-0.10.9.9-src.zip:/opt/spark/lib:/workspace/proyecto/modelado \
             --env SF_TEMPORARY_CREDENTIAL_CACHE_DIR=/tmp/snowflake-credential-cache \
             --env SNOWFLAKE_ACCOUNT --env SNOWFLAKE_USER \
@@ -80,7 +73,7 @@ jobs:
             --env SNOWFLAKE_DATABASE --env SNOWFLAKE_SCHEMA \
             --env SNOWFLAKE_OBT_SCHEMA --env SNOWFLAKE_WAREHOUSE --env SNOWFLAKE_ROLE \
             mc1-spark-integration:ci \
-            /usr/bin/python3 exportar_muestra_mc1.py \
+            python exportar_muestra_mc1.py \
               --output /out/mc1_muestra_experimentos.csv \
               --manifest /out/mc1_muestra_experimentos.manifest.json \
               --max-rows "$MC1_SAMPLE_MAX_ROWS"
@@ -90,9 +83,9 @@ jobs:
           docker run --rm \
             --workdir /workspace/proyecto/modelado \
             --volume "$GITHUB_WORKSPACE/psets/proyecto:/workspace/proyecto:ro" \
-            --volume "$RUNNER_TEMP/mc1-output:/out:ro" \
+            --volume "$RUNNER_TEMP:/out:ro" \
             --env PYTHONPATH=/workspace/proyecto/modelado \
             mc1-spark-integration:ci \
-            /usr/bin/python3 verificar_muestra_mc1.py \
+            python verificar_muestra_mc1.py \
               --csv /out/mc1_muestra_experimentos.csv \
               --manifest /out/mc1_muestra_experimentos.manifest.json
