@@ -6,73 +6,41 @@
 
 **Referencia de esta sesión:** *Designing Machine Learning Systems*, Chip Huyen, capítulo 6 (desarrollo y evaluación de modelos offline).
 
-## Requisitos antes de esta sesión
-
-Nada nuevo que instalar: todo lo de hoy está en scikit-learn. Ten a mano tu `pipeline_proyecto.py` y el modelo final que elegiste la sesión pasada. Los laboratorios de hoy son notebooks, como los de la Semana 10 y la sesión pasada.
-
-## Antes de empezar
-
-A partir de la lectura previa:
-
-**Según el artículo, ¿qué es la paradoja de la exactitud (accuracy paradox)? ¿Qué métricas recomienda en su lugar?**
-
-_(tu respuesta)_
-
-**El artículo cita la ley de Goodhart: "cuando una medida se convierte en objetivo, deja de ser una buena medida". ¿Qué ejemplo da, y qué tiene que ver con elegir un modelo por una sola métrica?**
-
-_(tu respuesta)_
-
-## Pregunta de apertura
-
-La sesión pasada elegiste el modelo con menor error sobre los 595 viajes de prueba. ¿Cuánto cambiaría ese error si la división hubiera sido otra? ¿Lo viste en algún lado del registro?
-
-_(tu respuesta)_
-
 ## Ejercicio 1: tres formas de validar el mismo modelo
 
 Notebook: [`starter/ejercicio1_validacion.ipynb`](./starter/ejercicio1_validacion.ipynb), sobre [`starter/viajes_features.csv`](./starter/viajes_features.csv), con la preparación de [`starter/preparacion_taxis.py`](./starter/preparacion_taxis.py). Ya trae una función `evaluar` que corre una validación cruzada con el esquema que le pases y guarda el error de cada pliegue. Los 4 `TODO` son tres esquemas de validación y dos métricas. Córrelo completo una vez antes de tocar nada (**Run All**).
 
 **Respuesta 1 (TODO 1):** con una sola división, el gradient boosting dio 1.2754 y el bosque 1.3016. Con 5 pliegues al azar, ¿esperas que los cinco errores del gradient boosting sean parecidos entre sí? ¿Cuánto esperas que varíen?
 
-_(tu respuesta)_
+Teniendo en cuenta la implementación de la pdivisión única, esperaria que mediante la aplicación de *K-Fold Cross Validation* los errores de los cinco folds entrados deberían de ser similares entre sí. Al implementar esre método, forzamos al modelo a validarse con diferentes segmentos de los datos de entrenamiento, dejando un subconjunto de datos libres, la idea principal es reducir la posibilidad de que el modelo tenga un sobreajuste sobre los datos de entrenamiento. Al realizar diferentes combinaciones de validaciones sobre el split de los datos, y sobre los splits internos entre validación y entrenamiento, se esperaría una diferencia no elevada entre los diferentes pliegues ejecutados. 
+
+Esperaría que varíen en un rango de 0.25 a 0.50 por Fold.
 
 **Respuesta 2 (TODO 2):** en la validación temporal, cada pliegue entrena con los viajes anteriores y valida con los siguientes. ¿Esperas un error mayor o menor que con pliegues al azar? ¿Por qué?
 
-_(tu respuesta)_
+En este caso, el error del split temporal  debería de aumentar debido a que la división que utiliza el método es incompatible con la naturaleza del problema de predicción. Al utilizar la KFold CV, los datos de observaciones tanto futuras como pasadas pueden utilizarse dentro del esquema de validación o de entrenamiento, debido a que el único limitante es que un dato sea parte de la valdiación una sola vez. 
+
+Además, dado que KFold CV no establece una separación en rangos de antes y después de, la data tomada por este método sigue de manera cercana la distribución de lso datos, mientras que el método temporal intenta separar los datos en rangos de tiempo, lo que puede generar que el modelo no tenga la misma distribución de datos para entrenar y validar, generando un error mayor.
+
 
 **Respuesta 3 (TODO 3):** en la validación por zona, ninguna zona de origen aparece a la vez en entrenamiento y en validación. ¿Qué pliegue crees que va a tener el peor error?
 
-_(tu respuesta)_
+Debido a que los datos de las tarifas registradas pueden tener a las zonas de origen más de una vez en sus registros, el peor error corresponde a este tipo de entrenamiento dado que si el mecanismo filtra los casos de entrada de un grupo o el otro, el momento en que tengamos que entrenar con casos de Queens, no tendremos nada con que validar esos mismos casos y eliminamos un grupo de datos de la validación totalmente, lo mismo sucede si ese registro esta solo en la validación, reduciendo los datos que tiene el modelo para utilizar por cada iteración.
 
 **Respuesta 4 (TODO 4):** la app muestra una tarifa estimada antes del viaje, y el pasajero reclama si la real sale más de 20% por encima. ¿Qué métrica dice mejor cuántos reclamos va a haber: el MAE, el RMSE, o el porcentaje de viajes subestimados en más de 20%?
 
-_(tu respuesta)_
+El porcentaje de viajes subestmados.
 
 **Lo que confirmó la tabla, esquema por esquema:**
 
-_(anota el promedio, la desviación y el peor pliegue de cada esquema)_
+```terminaloutput
+                  validacion  mae_promedio  desviacion                       pliegues
+aleatorio, gradient boosting        1.2288      0.0361 [1.28, 1.24, 1.16, 1.24, 1.23]
+           aleatorio, bosque        1.2887      0.0286  [1.3, 1.27, 1.25, 1.33, 1.29]
+ temporal, gradient boosting        1.3099      0.0693  [1.4, 1.21, 1.38, 1.27, 1.29]
+ por zona, gradient boosting        2.2996      2.0648 [1.27, 1.31, 1.29, 1.19, 6.43]
 
-## Durante los ConcepTests
-
-**ConcepTest 1. Tu voto, antes de discutir en pareja** (A, B, C o D):
-
-_(tu voto)_
-
-**Tu razonamiento:**
-
-_(tu respuesta)_
-
-**Después de discutir en pareja, ¿cambiaste de voto? ¿Por qué?**
-
-_(tu respuesta)_
-
-**ConcepTest 2. Tu voto, antes de discutir en pareja** (A, B, C o D):
-
-_(tu voto)_
-
-**Tu razonamiento:**
-
-_(tu respuesta)_
+```
 
 ## Ejercicio 2: el 95% que no detecta nada
 
@@ -80,15 +48,30 @@ Solo o en pareja. Notebook: [`starter/ejercicio2_fraude_y_umbral.ipynb`](./start
 
 **Respuesta 1:** ¿qué accuracy tiene la línea base que nunca predice fraude? ¿Y qué recall?
 
-_(tu respuesta)_
+```terminaloutput
+linea base           accuracy 0.9508   recall 0.0000   precision 0.0000
+```
 
 **Respuesta 2:** ¿cuánto mejora la accuracy del gradient boosting sobre la línea base, y cuánto mejora el recall? ¿Cuál de los dos números describe mejor lo que gana la empresa?
 
-_(tu respuesta)_
+```terminaloutput
+gradient boosting    accuracy 0.9712   recall 0.4610   precision 0.9051
+```
+
+En general, las metricas de Gradient Boosting son concretamente mejores en el area del recall y la precision. El modelo de Gradient Bosting tiene una precision de 0.9051 sobre la precision de 0 del modelo de linea base, lo que significa que el modelo de Gradient Boosting es capaz de identificar correctamente los casos de fraude y tiende a identificar una proporcion mayor de casos reales comparados con el total de casos reales y falsos positivos. 
+
+En el caso del *recall* del GB el incremento a 0.4610 sobre el 0 del modelo base indica que el modelo es capaz de identificar corrrectamente casos de fraude con respecto de los falsos negativos .
 
 **Respuesta 3:** con el umbral 0.5, ¿cuántos fraudes deja pasar el gradient boosting? ¿Qué umbral eligió el paso 5, y cuántos fraudes y falsas alarmas tiene con ese umbral?
 
-_(tu respuesta)_
+|  | 0 | 1 |
+| :--- | :--- | :--- |
+| 0 | 5691 | 14 |
+| 1 | 159 | 136 |
+
+Con el umbral de 0.5 el modelo de Gradient Boosting deja pasar 159 casos marcados como negativos cuando eran positivos.
+
+El umbral elegido en el paso .5 es de 0.1.
 
 **Si terminas antes:** si la revisión manual de una falsa alarma costara 20 dólares en vez de 3, ¿el umbral elegido sube o baja? Cambia la constante y comprueba.
 
