@@ -119,19 +119,53 @@ Solo o en pareja. Carpeta: [`starter/ejercicio2/`](./starter/ejercicio2/). El eq
 
 **Respuesta 1:** ¿qué versión quedó en producción, y por qué no la última que se registró?
 
-_(tu respuesta)_
+```
+/usr/bin/python3 /IdeaProjects/data-science-end-to-end/laboratorios/semana-13-sesion-01/starter/ejercicio2/ciclo_fraude.py 
+Registered model 'fraude-pagos' already exists. Creating a new version of this model...
+Created version '13' of model 'fraude-pagos'.
+logistica: version 13, recall 0.644, precision 0.304, promovida: False
+Registered model 'fraude-pagos' already exists. Creating a new version of this model...
+Created version '14' of model 'fraude-pagos'.
+gradient-boosting: version 14, recall 0.661, precision 0.429, promovida: False
+Registered model 'fraude-pagos' already exists. Creating a new version of this model...
+Created version '15' of model 'fraude-pagos'.
+logistica-muy-regularizada: version 15, recall 0.102, precision 0.667, promovida: False
+En produccion: version 11
+
+Process finished with exit code 0
+
+```
+
+La version que qeudo en produccion fue la version 11, debido a que ejecute varias veces el check en ciclos. En este caso, la version 15 tiene un recall 0.102, y en este caso el recall que tenemos debe ser mas bajo que el de la version 11 que tiene un recall de 0.6610169491525424. como ninguna de las metricas resultates son superiores en general, esta ejecucion se mantiene en el sistema.
 
 **Respuesta 2:** la regresión logística muy regularizada tiene la mayor precisión de las tres. ¿Por qué la regla la rechazó? ¿Qué tendría que cambiar en la regla si la empresa decide que las falsas alarmas cuestan más que los fraudes no detectados?
 
-_(tu respuesta)_
+Se rechaza este caso porque no estamos optimizando para los casos en donde el modelo acierta con respecto del total de casos positivos y falsos positivos, estamos tratando e optimizar los casos positivos en el total de los casos positivos del sistema, es decir, tanto casos correctamente clasificados y los falsos negativos sdel sistema. 
+
+Para no rechazar este caso y aceptar esta entrada, se tendria que modificar la comparativa para utilizar tanto recall como precision y elegir la metrica prioritaria, o utilizar solamente la metrica de precision.
 
 **Respuesta 3:** abre el modelo `fraude-pagos` en la interfaz de MLflow (puerto 5050, pestaña **Models**). Si dentro de un mes alguien pregunta por qué la versión 3 nunca llegó a producción, ¿dónde está la respuesta?
 
-_(tu respuesta)_
+La respuesta esta en las tags de comparativa, el resultado que se guarda en validacion, y comparada_con quien registra el ID de la entrada con la que fue comparada con. Esto permite a un evaluador revisar la trazabilidad completa de una decision de modificacion del modelo de produccion, y determinar cual fue el modelo que se mantuvo en produccion y quien fue rechazado.
 
 **Si terminas antes:** vuelve a correr `python ciclo_fraude.py`. ¿Cuántas versiones hay ahora, y cuál está en producción? ¿Es lo que esperabas?
 
-_(tu respuesta)_
+```
+/usr/bin/python3 /IdeaProjects/data-science-end-to-end/laboratorios/semana-13-sesion-01/starter/ejercicio2/ciclo_fraude.py 
+Registered model 'fraude-pagos' already exists. Creating a new version of this model...
+Created version '13' of model 'fraude-pagos'.
+logistica: version 13, recall 0.644, precision 0.304, promovida: False
+Registered model 'fraude-pagos' already exists. Creating a new version of this model...
+Created version '14' of model 'fraude-pagos'.
+gradient-boosting: version 14, recall 0.661, precision 0.429, promovida: False
+Registered model 'fraude-pagos' already exists. Creating a new version of this model...
+Created version '15' of model 'fraude-pagos'.
+logistica-muy-regularizada: version 15, recall 0.102, precision 0.667, promovida: False
+En produccion: version 11
+
+Process finished with exit code 0
+
+```
 
 ## Ejercicio 3: el registro de tu proyecto
 
