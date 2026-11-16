@@ -13,6 +13,8 @@ import sys
 
 import mlflow
 import mlflow.sklearn
+from mlflow.models.model import ModelInfo
+from mlflow.sklearn import log_model
 import pandas as pd
 from sklearn.metrics import mean_absolute_error
 from sklearn.neural_network import MLPRegressor
@@ -39,11 +41,13 @@ with mlflow.start_run(run_name=f"red-{neuronas}"):
     mlflow.log_param("neuronas", neuronas)
     mlflow.log_metric("mae", mae)
 
-    # TODO 1: guarda el modelo en la corrida (mlflow.sklearn.log_model, con
+    # [DONE] 1: guarda el modelo en la corrida (mlflow.sklearn.log_model, con
     # el nombre de artefacto "modelo") y registralo a la vez, con
     # registered_model_name=NOMBRE. log_model devuelve informacion del
     # modelo: su atributo registered_model_version es el numero de la
     # version nueva.
-    version = None
+
+    registro_modelo: ModelInfo = mlflow.sklearn.log_model(modelo, "modelo", registered_model_name=NOMBRE)
+    version = registro_modelo.registered_model_version
 
 print(f"Version {version} de {NOMBRE}: red de {neuronas} neuronas, MAE {mae:.4f}")
