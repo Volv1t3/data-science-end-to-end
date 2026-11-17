@@ -6,27 +6,6 @@
 
 **Referencia de esta sesión:** [Machine Learning Zoomcamp, Módulo 5 (DataTalksClub)](https://github.com/DataTalksClub/machine-learning-zoomcamp).
 
-## Requisitos antes de esta sesión
-
-Nada nuevo que instalar: FastAPI y uvicorn ya llegaron con el contenedor reconstruido la sesión pasada. Los laboratorios de hoy son scripts y un `Dockerfile`. El servicio escucha en el puerto 8000: cuando lo levantes, aparece en la pestaña **Ports** como "Servicio de predicción (Semana 12)", y su documentación interactiva queda en la ruta `/docs` de ese puerto.
-
-## Antes de empezar
-
-A partir de la lectura previa:
-
-**Según el artículo, ¿qué pasos separan un modelo entrenado en un notebook de un modelo que otra aplicación puede usar?**
-
-_(tu respuesta)_
-
-**¿Para qué usa el artículo un contenedor, si el servicio ya corre en la máquina de quien lo escribió?**
-
-_(tu respuesta)_
-
-## Pregunta de apertura
-
-La sesión pasada, la app leía las tarifas de una tabla calculada de noche. Cuando un pasajero escribe un destino que no estaba reservado, no hay ninguna fila que leer. ¿Qué tendría que existir para que la app le pregunte al modelo en ese momento, y qué le mandaría?
-
-_(tu respuesta)_
 
 ## Ejercicio 1: la tarifa, como servicio
 
@@ -48,41 +27,24 @@ curl -X POST localhost:8000/predecir -H "Content-Type: application/json" -d '{"f
 
 **Respuesta 1 (antes de los TODO):** sin resolver, `/salud` dice que el modelo está cargado, `/predecir` responde 200 y `pytest` dice `3 passed`. ¿Qué de esa salida debería preocuparte?
 
-_(tu respuesta)_
+De esta salida deberia de preocuparme la existencia de una salida de este estilo. Al estar trabajnado con un sistema con un modelo cargado que no sabemos cual es, el principal problema es que diga modelo cargad ypase las pruebas sin saber que modelo se cargo, y de donde vino.
 
 **Respuesta 2 (TODO 1):** con el esquema completo, ¿qué esperas que responda el servicio a un viaje sin `distancia_km`? ¿Y a uno sin `zona_origen`?
 
-_(tu respuesta)_
+Si se registrara un caso de que viniera una solicitud sin `distancia_km` el resultado eneral seria direcaamente un errr interno de validacion. La respuesta no la enviaria directamente la app porque seria un error de validacion de pydantic.
 
 **Respuesta 3 (TODO 2):** el modelo se entrenó con `hora_sin`, `hora_cos` y `es_hora_pico`, pero la app manda solo la fecha y hora. ¿Qué pasaría si el servicio calculara `es_hora_pico` con otras horas que las del entrenamiento?
 
-_(tu respuesta)_
+Si el modelo calculara las horas sin utilizar el mecanismo de la implementacino de entrenamiento, los datos que recibiria el modeloseai co,pleamente distnitos en su distribucion y posibles valores a los que aprendio durante el entrenamiento. Ademas, si las formulas no coinciden y el procesamiento varia, podria haber un drift de las predicciones del modelo resultando de la discrepancia entre el proeso de entrenameinto y despliegue.
 
 **Respuesta 4 (TODO 3 y 4):** el código 422 del viaje sin zona de origen, ¿lo produce tu código o FastAPI? ¿La petición llega al modelo?
 
-_(tu respuesta)_
+La peticion llega, pero el modelo que se registra lo intercepta primero Pydantic para la validacion del estado de los datos y si mantiene la estructura reqrida. EL error 422 Unprocessable Entity se usa desde Pydantic para indicar que existen errores en la definicion del objeto enviado al endpoint de la API que no permite que sea procesado.
 
 **Respuesta 5 (TODO 5):** construye y corre la imagen con el `CMD` sin resolver (`docker build -t servicio-tarifa .` y `docker run -p 8000:8000 servicio-tarifa`). El log dice que uvicorn está corriendo, pero `curl localhost:8000/salud` falla. ¿Por qué?
 
-_(tu respuesta)_
+Porque la exposicion del puerto con `-p 8000:8000` funciona, pero Uvicorn por defecto escucha solamente en `127.0.0.1` dentro del contenedor. Docker redirige las peticiones hacia la interfaz de red del contenedor y no hacia su loopback, por lo que no puede llegar al proceso aunque el puerto este mapeado. Al agregar `--host 0.0.0.0` al `CMD`, Uvicorn escucha en todas las interfaces del contenedor y Docker puede reenviar las peticiones de `localhost:8000` correctamente.
 
-**Lo que respondió el servicio:**
-
-_(anota la tarifa del viaje de Midtown al aeropuerto, y la respuesta completa al viaje sin zona de origen)_
-
-## Durante el ConcepTest
-
-**Tu voto, antes de discutir en pareja** (A, B, C o D):
-
-_(tu voto)_
-
-**Tu razonamiento:**
-
-_(tu respuesta)_
-
-**Después de discutir en pareja, ¿cambiaste de voto? ¿Por qué?**
-
-_(tu respuesta)_
 
 ## Ejercicio 2: el fraude, en el momento del pago
 
@@ -90,19 +52,19 @@ Solo o en pareja. Carpeta: [`starter/ejercicio2/`](./starter/ejercicio2/). La se
 
 **Respuesta 1:** levanta el servicio y evalúa dos pagos: uno de madrugada, por app, con tarjeta nueva, dos intentos fallidos y ningún viaje previo; otro de la tarde, con tarjeta conocida y 22 viajes previos. ¿Qué probabilidad y qué decisión recibió cada uno?
 
-_(tu respuesta)_
+El pago riesgoso recibio `{"probabilidad_fraude": 0.9996, "revisar": true}`. El pago tranquilo recibio `{"probabilidad_fraude": 0.0159, "revisar": false}`.
 
 **Respuesta 2:** el servicio devuelve la decisión (`revisar`) además de la probabilidad. ¿Qué gana la app con eso? ¿Qué tendría que cambiar si la empresa decide mañana que el umbral es 0.20?
 
-_(tu respuesta)_
+La app puede usar `revisar` directamente para decidir si pausa el cobro, sin duplicar la regla del umbral. Si el umbral cambia a 0.20, se cambia la constante `UMBRAL` del servicio y se vuelve a desplegar; la probabilidad del modelo no cambia.
 
 **Respuesta 3:** el mismo pago, evaluado por este servicio y por el lote de la sesión pasada, ¿da la misma probabilidad? ¿Qué tiene que ser igual en los dos para que así sea?
 
-_(tu respuesta)_
+Debe dar la misma probabilidad si ambos usan el mismo modelo, las mismas columnas en el mismo orden y las mismas features derivadas. En particular, los dos deben calcular `hora` y `monto_por_km` con `agregar_features` antes de llamar al modelo.
 
 **Si terminas antes:** manda a `/evaluar_pago` un pago con `"monto": "cuarenta"`. ¿Qué responde el servicio, y qué línea de `servicio_fraude.py` produce esa respuesta?
 
-_(tu respuesta)_
+Responde 422 Unprocessable Entity con `float_parsing` en `body.monto`: no puede convertir `"cuarenta"` a numero. La validacion la produce la anotacion `monto: float` de la clase `Pago`; FastAPI y Pydantic rechazan la peticion antes de ejecutar `evaluar_pago`.
 
 ## Ejercicio 3: el servicio de tu proyecto
 
@@ -126,11 +88,33 @@ En `proyecto/README.md`, agrega la sección **Cómo correr el servicio**: cómo 
 
 **¿Qué datos recibe tu servicio, y cuáles de tus features calcula él mismo? ¿Cómo sabes que las calcula igual que en el entrenamiento?**
 
-_(tu respuesta)_
+El servicio recibe `ssd_key`, `observation_date` y las ventanas SMART de 7,
+14 y 30 días ya calculadas por la OBT. La API utiliza
+`preparar_observacion_inferencia` de `modelado.pipeline_proyecto` para validar,
+convertir a números y ordenar las características seleccionadas por el modelo.
+La OBT calcula las ventanas a partir del historial; una sola petición no
+contiene ese historial. Entrenamiento e inferencia comparten los nombres y el
+orden de columnas mediante el pipeline exportado.
 
 **Pega una petición a tu servicio corriendo en el contenedor, y su respuesta:**
 
-_(tu respuesta)_
+Desde `psets/proyecto/`, con el contenedor levantado en el puerto 18000 del
+devcontainer (el 8000 estaba ocupado):
+
+```bash
+python -m servicio.crear_peticion_ejemplo
+curl -X POST http://127.0.0.1:18000/predecir \
+  -H 'Content-Type: application/json' \
+  --data-binary @data/processed/peticion_ejemplo.json
+```
+
+La petición generada usa una observación completa de prueba, con el SSD
+`000134b167e1ff263245170d1a1aeb0aa49e8f6a4265781229acfcb425dd2ee4`,
+fecha `2019-11-05` y 41 ventanas SMART. Respuesta real:
+
+```json
+{"ssd_key":"000134b167e1ff263245170d1a1aeb0aa49e8f6a4265781229acfcb425dd2ee4","observation_date":"2019-11-05","probabilidad_falla_30d":0.046156090183027146,"requiere_revision":false,"run_id":"e9376de97c95409b9413647691551266"}
+```
 
 ## Antes de la próxima sesión
 

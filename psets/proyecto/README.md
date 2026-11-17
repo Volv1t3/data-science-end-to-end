@@ -98,15 +98,15 @@ docker build -f servicio/Dockerfile -t mc1-servicio .
 docker run --rm -p 8000:8000 mc1-servicio
 ```
 
-`exportar_modelo.py` consulta el alias `produccion` de
-`antes_de_que_falle_mc1_clasificador` en MLflow, descarga esa versión y
-genera `servicio/modelo.joblib` y `servicio/modelo_version.txt`. La imagen
+`exportar_modelo.py` toma el `run_id` elegido en
+`data/processed/modelo_final.json`, descarga el artefacto
+`runs:/<run_id>/pipeline_entrenado` y genera `servicio/modelo.joblib`.
+También acepta `--run-id` para exportar una corrida anterior. La imagen
 incluye el modelo exportado y la misma versión de scikit-learn usada al
 entrenar en el devcontainer. Para desarrollo directo:
 `uvicorn servicio.api:app --port 8000`.
 
-`GET /salud` indica si el artefacto está cargado e informa el `run_id` y
-`version_modelo`.
+`GET /salud` indica si el artefacto está cargado e informa el `run_id`.
 `POST /predecir` recibe `ssd_key`, `observation_date` y un objeto
 `caracteristicas` con las ventanas SMART de 7, 14 y 30 días calculadas por la
 OBT. Por ejemplo, el cuerpo de la petición se puede crear a partir de una fila
@@ -115,7 +115,7 @@ fecha de observación. Las 54 columnas candidatas se documentan en
 `modelado/pipeline_proyecto.py`; la API exige las columnas seleccionadas por el
 modelo exportado y rechaza con 422 cualquier valor faltante de ellas. La
 respuesta incluye la probabilidad de falla en 30 días, la decisión de revisión
-y el `run_id` y `version_modelo` que permiten rastrear la predicción. Los datos de entrenamiento,
+y el `run_id` que permite rastrear la predicción. Los datos de entrenamiento,
 los resultados y el registro MLflow no se copian a la imagen.
 
 La API usa `preparar_observacion_inferencia` importada de
@@ -139,24 +139,5 @@ SMART seleccionadas, sin `TARGET_30D`. En esta reproducción se usó el puerto
 18000 del devcontainer porque 8000 ya estaba ocupado; la respuesta fue:
 
 ```json
-{"ssd_key":"000134b167e1ff263245170d1a1aeb0aa49e8f6a4265781229acfcb425dd2ee4","observation_date":"2019-11-05","probabilidad_falla_30d":0.046156090183027146,"requiere_revision":false,"run_id":"e9376de97c95409b9413647691551266","version_modelo":"1"}
+{"ssd_key":"000134b167e1ff263245170d1a1aeb0aa49e8f6a4265781229acfcb425dd2ee4","observation_date":"2019-11-05","probabilidad_falla_30d":0.046156090183027146,"requiere_revision":false,"run_id":"e9376de97c95409b9413647691551266"}
 ```
-
-## Versionado del modelo
-
-Desde `psets/proyecto/`, crea una nueva versión y exporta la que tenga el
-alias `produccion`:
-
-```bash
-python -m servicio.registrar_modelo --alpha 0.01
-python -m servicio.promover 1 \
-  --responsable 'Codex (ejecucion del laboratorio)' \
-  --motivo 'Version 1 supera la PR-AUC de validacion de version 2'
-python -m servicio.exportar_modelo
-```
-
-En el MLflow del devcontainer, la versión 1 tiene PR-AUC de validación
-0.039071 y el alias `produccion`; la versión 2 tiene 0.022726. El motivo y
-los pasos para volver a una versión anterior están en `docs/despliegue.md`.
-Mover el alias no modifica un contenedor en ejecución: después hay que
-exportar, reconstruir la imagen y reemplazarlo.
