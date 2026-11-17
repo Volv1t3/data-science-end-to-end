@@ -53,7 +53,7 @@ def salud():
 
 @app.post("/predecir")
 def predecir(viaje: Viaje):
-    # TODO 2: convierte el viaje en un DataFrame de una fila
+    # [DONE] 2: convierte el viaje en un DataFrame de una fila
     # (viaje.model_dump() lo da como diccionario), agrega las features y
     # estima la tarifa con el modelo.
 

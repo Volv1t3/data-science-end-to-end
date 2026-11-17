@@ -88,3 +88,16 @@ def test_rechaza_una_clave_ssd_dia_duplicada() -> None:
 
     with pytest.raises(ValueError, match="duplicados"):
         pipeline.normalizar_tipos(duplicado)
+
+
+def test_inferencia_usa_el_orden_del_modelo_y_rechaza_nulos() -> None:
+    primera, segunda = pipeline.NUMERICAS[:2]
+    fila = pipeline.preparar_observacion_inferencia(
+        {primera: 1, segunda: 2}, [segunda, primera]
+    )
+    assert fila.columns.tolist() == [segunda, primera]
+    assert fila.iloc[0].tolist() == [2.0, 1.0]
+    with pytest.raises(ValueError, match="completas"):
+        pipeline.preparar_observacion_inferencia(
+            {primera: None, segunda: 2}, [segunda, primera]
+        )

@@ -16,7 +16,7 @@ Se establece una **frecuencia de actualización de 24 horas**, considerando que 
 
 ### Cantidad de casos y conocimiento anticipado
 
-La unidad de predicción corresponde a cada SSD activo del modelo MC1 en una fecha determinada, identificado mediante `DISK_ID` y `OBSERVATION_DATE`. Aunque el problema de clasificación contempla dos resultados posibles (`TARGET_30D = 0` y `TARGET_30D = 1`), la cantidad de casos que deben procesarse depende del número de unidades elegibles presentes en el inventario operativo.
+La unidad de predicción corresponde a cada SSD activo del modelo MC1 en una fecha determinada, identificado mediante `SSD_KEY` y `OBSERVATION_DATE`. Aunque el problema de clasificación contempla dos resultados posibles (`TARGET_30D = 0` y `TARGET_30D = 1`), la cantidad de casos que deben procesarse depende del número de unidades elegibles presentes en el inventario operativo.
 
 Estos casos pueden identificarse antes de cada ejecución mediante el inventario de dispositivos y los registros de telemetría disponibles. Por tanto, el conjunto de unidades a evaluar es conocido al iniciar cada lote, aunque su composición puede variar diariamente por incorporaciones, fallas o retiros de dispositivos.
 
@@ -28,7 +28,7 @@ El modelo requiere la telemetría SMART correspondiente al día de evaluación y
 
 La telemetría será recopilada diariamente mediante un sistema auxiliar con acceso a los dispositivos monitoreados, utilizando herramientas compatibles con los fabricantes. Los registros obtenidos se almacenarán y procesarán mediante el pipeline ETL antes de ejecutar la inferencia por lotes, permitiendo combinar las mediciones actuales con el historial disponible.
 
-Por tanto, **los datos necesarios estarán disponibles al momento de la predicción siempre que la recolección y el procesamiento previos se completen correctamente**. En caso de observaciones faltantes o historial insuficiente, se aplicarán los indicadores de validez y las políticas de tratamiento de valores ausentes definidas durante la preparación de datos, sin asumir que todas las características temporales estarán completas.
+Por tanto, **los datos necesarios estarán disponibles al momento de la predicción siempre que la recolección y el procesamiento previos se completen correctamente**. La API recibe las ventanas SMART ya calculadas por la OBT. Si falta alguna de las características seleccionadas durante el entrenamiento, devuelve 422 y el lote debe dejar constancia de esa unidad para revisión; no inventa lecturas ausentes.
 
 ### Limitaciones del patrón descartado
 
