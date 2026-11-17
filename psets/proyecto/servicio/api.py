@@ -14,7 +14,6 @@ from modelado.pipeline_proyecto import preparar_observacion_inferencia
 
 
 RUTA_MODELO = Path(__file__).resolve().parent / "modelo.joblib"
-RUTA_VERSION = RUTA_MODELO.with_name("modelo_version.txt")
 app = FastAPI(title="Antes de que falle: SSD MC1")
 
 
@@ -29,21 +28,16 @@ class ObservacionSSD(BaseModel):
 
 @lru_cache(maxsize=1)
 def cargar_modelo() -> dict:
-    paquete = joblib.load(RUTA_MODELO)
-    version = RUTA_VERSION.read_text(encoding="utf-8").strip()
-    if not version or version != paquete.get("version_modelo"):
-        raise ValueError("El modelo y su archivo de versión no coinciden")
-    return paquete
+    return joblib.load(RUTA_MODELO)
 
 
 @app.get("/salud")
 def salud() -> dict:
     try:
         paquete = cargar_modelo()
-    except (FileNotFoundError, OSError, ValueError):
+    except (FileNotFoundError, OSError):
         return {"estado": "sin_modelo", "modelo_cargado": False}
-    return {"estado": "ok", "modelo_cargado": True,
-            "run_id": paquete["run_id"], "version_modelo": paquete["version_modelo"]}
+    return {"estado": "ok", "modelo_cargado": True, "run_id": paquete["run_id"]}
 
 
 @app.post("/predecir")
@@ -59,5 +53,4 @@ def predecir(observacion: ObservacionSSD, paquete: dict = Depends(cargar_modelo)
         "probabilidad_falla_30d": probabilidad,
         "requiere_revision": probabilidad >= paquete["umbral"],
         "run_id": paquete["run_id"],
-        "version_modelo": paquete["version_modelo"],
     }
