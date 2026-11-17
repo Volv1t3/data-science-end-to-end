@@ -191,11 +191,21 @@ Agrega la sección **Versionado y registro**: cómo se llama tu modelo en el reg
 
 **¿Con qué criterio decides que una versión nueva de tu modelo pasa a producción? ¿Quién lo decide en tu proyecto, y dónde queda registrada la decisión?**
 
-_(tu respuesta)_
+Se compara la PR-AUC en la misma partición temporal de validación, con la
+misma muestra congelada y el mismo contrato de features. La nueva versión
+debe igualar o superar la versión activa y pasar las pruebas del servicio.
+El responsable del modelo y operaciones de almacenamiento/SRE toman la
+decisión; `servicio/promover.py` deja responsable, motivo, fecha, métrica y
+versión previa como etiquetas de la versión en MLflow. En este laboratorio
+se mantuvo la versión 1 (PR-AUC 0.039071) frente a la versión 2 (0.022726).
 
 **Si tu servicio corre en un contenedor sin acceso al servidor de MLflow, ¿cómo sabe qué versión está sirviendo?**
 
-_(tu respuesta)_
+Antes de construir la imagen, `servicio/exportar_modelo.py` resuelve el alias
+`produccion` y copia el modelo a `modelo.joblib` junto con el número en
+`modelo_version.txt`. Ambos se incluyen en la imagen. El servicio comprueba
+que el número del archivo coincide con el del paquete y lo devuelve en
+`/salud` y en cada respuesta de `/predecir`; no consulta MLflow al predecir.
 
 ## Antes de la próxima sesión
 

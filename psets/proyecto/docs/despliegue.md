@@ -16,7 +16,7 @@ Se establece una **frecuencia de actualización de 24 horas**, considerando que 
 
 ### Cantidad de casos y conocimiento anticipado
 
-La unidad de predicción corresponde a cada SSD activo del modelo MC1 en una fecha determinada, identificado mediante `DISK_ID` y `OBSERVATION_DATE`. Aunque el problema de clasificación contempla dos resultados posibles (`TARGET_30D = 0` y `TARGET_30D = 1`), la cantidad de casos que deben procesarse depende del número de unidades elegibles presentes en el inventario operativo.
+La unidad de predicción corresponde a cada SSD activo del modelo MC1 en una fecha determinada, identificado mediante `SSD_KEY` y `OBSERVATION_DATE`. Aunque el problema de clasificación contempla dos resultados posibles (`TARGET_30D = 0` y `TARGET_30D = 1`), la cantidad de casos que deben procesarse depende del número de unidades elegibles presentes en el inventario operativo.
 
 Estos casos pueden identificarse antes de cada ejecución mediante el inventario de dispositivos y los registros de telemetría disponibles. Por tanto, el conjunto de unidades a evaluar es conocido al iniciar cada lote, aunque su composición puede variar diariamente por incorporaciones, fallas o retiros de dispositivos.
 
@@ -28,7 +28,7 @@ El modelo requiere la telemetría SMART correspondiente al día de evaluación y
 
 La telemetría será recopilada diariamente mediante un sistema auxiliar con acceso a los dispositivos monitoreados, utilizando herramientas compatibles con los fabricantes. Los registros obtenidos se almacenarán y procesarán mediante el pipeline ETL antes de ejecutar la inferencia por lotes, permitiendo combinar las mediciones actuales con el historial disponible.
 
-Por tanto, **los datos necesarios estarán disponibles al momento de la predicción siempre que la recolección y el procesamiento previos se completen correctamente**. En caso de observaciones faltantes o historial insuficiente, se aplicarán los indicadores de validez y las políticas de tratamiento de valores ausentes definidas durante la preparación de datos, sin asumir que todas las características temporales estarán completas.
+Por tanto, **los datos necesarios estarán disponibles al momento de la predicción siempre que la recolección y el procesamiento previos se completen correctamente**. La API recibe las ventanas SMART ya calculadas por la OBT. Si falta alguna de las características seleccionadas durante el entrenamiento, devuelve 422 y el lote debe dejar constancia de esa unidad para revisión; no inventa lecturas ausentes.
 
 ### Limitaciones del patrón descartado
 
@@ -37,3 +37,57 @@ Al descartar la inferencia en línea, el sistema pierde la capacidad de actualiz
 Esta limitación es aceptable dentro del alcance del proyecto, puesto que el modelo utiliza observaciones y características temporales de resolución diaria para estimar fallas en un horizonte de 30 días, buscando una anticipación mínima de siete días que permita planificar intervenciones preventivas.
 
 El sistema no pretende sustituir los mecanismos existentes de monitoreo y alerta inmediata, sino complementarlos mediante una clasificación periódica de riesgo que facilite la priorización del mantenimiento.
+
+## Versionado y registro
+
+El modelo registrado en el MLflow del devcontainer se llama
+`antes_de_que_falle_mc1_clasificador`. La versión **1** tiene el alias
+`produccion`, corresponde a la MLP original (`alpha=0.001`, corrida
+`e9376de97c95409b9413647691551266`) y obtuvo **PR-AUC de validación
+0.039071**. La versión **2** se entrenó con `alpha=0.01` sobre la misma muestra
+congelada y obtuvo 0.022726; permanece registrada para comparación, sin el
+alias. La métrica principal se guarda en cada corrida como
+`validacion_pr_auc`, junto con la huella de la muestra.
+
+El responsable del modelo y el equipo de operaciones de almacenamiento/SRE
+revisan la PR-AUC en la partición temporal de validación, la procedencia de
+los datos, el contrato de features y las pruebas del servicio. Una nueva
+versión debe igualar o superar la PR-AUC de producción antes de mover el
+alias; una caída requiere un rollback explícito. `servicio/promover.py`
+registra el motivo, el responsable, la fecha UTC, la versión previa y la
+métrica en etiquetas de la versión promovida. La promoción de la versión 1
+fue ejecutada por Codex para el laboratorio; no representa una aprobación
+operativa real.
+
+Desde `psets/proyecto/`, el ciclo de registro y despliegue es:
+
+```bash
+python -m servicio.registrar_modelo --alpha 0.01
+python -m servicio.promover 1 \
+  --responsable 'Codex (ejecucion del laboratorio)' \
+  --motivo 'Version 1 supera la PR-AUC de validacion de version 2'
+python -m servicio.exportar_modelo
+docker build -f servicio/Dockerfile -t mc1-servicio:version-1 .
+docker run --rm -p 8000:8000 mc1-servicio:version-1
+```
+
+El exportador consulta `models:/antes_de_que_falle_mc1_clasificador@produccion`
+y genera `servicio/modelo.joblib` y `servicio/modelo_version.txt`. La imagen
+incluye ambos archivos; no necesita MLflow durante la inferencia. Mover el
+alias no cambia una imagen que ya está corriendo: hay que exportar, construir
+la nueva imagen y sustituir el contenedor.
+
+Si una versión nueva se despliega y falla, se recupera el número de la
+versión anterior en MLflow y se vuelve a apuntar el alias, por ejemplo:
+
+```bash
+python -m servicio.promover 1 --rollback \
+  --responsable 'equipo de operaciones' \
+  --motivo 'Reversion de la version nueva por regresion observada'
+python -m servicio.exportar_modelo
+docker build -f servicio/Dockerfile -t mc1-servicio:rollback-1 .
+```
+
+Después se sustituye el contenedor por la imagen `rollback-1` y se comprueba
+que `/salud` y `/predecir` responden `version_modelo: "1"`. Las versiones
+anteriores y sus corridas permanecen en MLflow.

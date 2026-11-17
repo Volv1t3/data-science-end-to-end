@@ -1,4 +1,4 @@
-# [Nombre de tu proyecto]
+# Antes de que falle — SSD MC1
 
 > Este es el README de tu proyecto: reemplaza cada sección entre corchetes a medida que avanzas. Escríbelo para alguien que clona tu fork sin haber estado en clase y necesita entender qué hace el proyecto y correrlo, no como una nota para ti.
 
@@ -52,10 +52,111 @@ El workflow manual `MC1 Snowflake integration` construye la imagen Spark del
 PSet 2 y valida una extracción real. Requiere el Environment
 `snowflake-integration` y sus secrets/variables; no se ejecuta en cada push.
 
+Para repetir las cuatro corridas del notebook de Semana 11 en el MLflow del
+devcontainer, desde `psets/proyecto/`:
+
+```bash
+python -m modelado.entrenar_modelos --tracking-uri http://127.0.0.1:5050
+```
+
+El script reutiliza por defecto la muestra de
+`laboratorios/semana-11-sesion-02/starter/` si todavía no existe un CSV en
+`data/processed/`. También acepta `--data` y `--tracking-uri`. Comprueba la
+huella SHA-256 contra el manifiesto cuando está disponible, selecciona las
+características solo con entrenamiento y registra los modelos
+`linea_base_dummy`, `bosque_aleatorio`, `gradient_boosting` y
+`red_neuronal_mlp` bajo el experimento
+`Antes de que falle - SSD MC1 - TARGET_30D`. La elección final usa solo
+PR-AUC y F0.5 de validación; la prueba se informa después de la elección.
+Cada corrida contiene parámetros, métricas, procedencia y el artefacto
+`pipeline_entrenado`. En `data/processed/modelo_final.json` quedan el `run_id`
+final, las columnas y la huella de la muestra. Esos archivos locales no se
+suben a Git.
+
+Esta ejecución usó scikit-learn 1.5.2, la versión instalada en el
+devcontainer del curso. Los notebooks adjuntos se ejecutaron con 1.7.2;
+el servicio fija 1.5.2 para poder cargar el modelo recién entrenado.
+
 ## Modelo final
 
-[El modelo elegido, su `run_id` en MLflow y la métrica que lo sostiene. El razonamiento completo está en `docs/decision_modelo.md`. Se completa con el PSet 3.]
+La corrida final de esta reproducción fue `red_neuronal_mlp`, `run_id`
+`e9376de97c95409b9413647691551266`, con PR-AUC de validación 0.039071 y
+PR-AUC de prueba 0.013095. Se registró como versión 1 de
+`antes_de_que_falle_mc1_clasificador` en el MLflow del devcontainer.
+La siguiente ejecución generará un nuevo `run_id`; el valor vigente queda en
+`data/processed/modelo_final.json`.
+La clasificación usa umbral fijo 0.50, igual que en los notebooks; las
+probabilidades pueden requerir calibración antes de automatizar decisiones.
 
 ## Cómo correr el servicio
 
-[Cómo se construye y se levanta el contenedor de `servicio/`, qué versión del modelo carga desde el registro, y un ejemplo de petición con su respuesta. Se completa con el PSet 4.]
+Desde `psets/proyecto/`, después de entrenar:
+
+```bash
+python -m servicio.exportar_modelo --tracking-uri http://127.0.0.1:5050
+docker build -f servicio/Dockerfile -t mc1-servicio .
+docker run --rm -p 8000:8000 mc1-servicio
+```
+
+`exportar_modelo.py` consulta el alias `produccion` de
+`antes_de_que_falle_mc1_clasificador` en MLflow, descarga esa versión y
+genera `servicio/modelo.joblib` y `servicio/modelo_version.txt`. La imagen
+incluye el modelo exportado y la misma versión de scikit-learn usada al
+entrenar en el devcontainer. Para desarrollo directo:
+`uvicorn servicio.api:app --port 8000`.
+
+`GET /salud` indica si el artefacto está cargado e informa el `run_id` y
+`version_modelo`.
+`POST /predecir` recibe `ssd_key`, `observation_date` y un objeto
+`caracteristicas` con las ventanas SMART de 7, 14 y 30 días calculadas por la
+OBT. Por ejemplo, el cuerpo de la petición se puede crear a partir de una fila
+de `OBT_MC1_RN` omitiendo `TARGET_30D`, `PARTICION` y datos posteriores a la
+fecha de observación. Las 54 columnas candidatas se documentan en
+`modelado/pipeline_proyecto.py`; la API exige las columnas seleccionadas por el
+modelo exportado y rechaza con 422 cualquier valor faltante de ellas. La
+respuesta incluye la probabilidad de falla en 30 días, la decisión de revisión
+y el `run_id` y `version_modelo` que permiten rastrear la predicción. Los datos de entrenamiento,
+los resultados y el registro MLflow no se copian a la imagen.
+
+La API usa `preparar_observacion_inferencia` importada de
+`modelado.pipeline_proyecto` para normalizar y ordenar las columnas. Las
+ventanas SMART no pueden recalcularse a partir de una sola petición: la OBT
+debe aportar el historial previo y las ventanas ya construidas.
+
+Para reproducir una petición real con una fila completa de la partición de
+prueba, en otra terminal del devcontainer:
+
+```bash
+cd psets/proyecto
+python -m servicio.crear_peticion_ejemplo
+curl -X POST http://127.0.0.1:8000/predecir \
+  -H 'Content-Type: application/json' \
+  --data-binary @data/processed/peticion_ejemplo.json
+```
+
+La petición generada contiene `ssd_key`, `observation_date` y las 41 ventanas
+SMART seleccionadas, sin `TARGET_30D`. En esta reproducción se usó el puerto
+18000 del devcontainer porque 8000 ya estaba ocupado; la respuesta fue:
+
+```json
+{"ssd_key":"000134b167e1ff263245170d1a1aeb0aa49e8f6a4265781229acfcb425dd2ee4","observation_date":"2019-11-05","probabilidad_falla_30d":0.046156090183027146,"requiere_revision":false,"run_id":"e9376de97c95409b9413647691551266","version_modelo":"1"}
+```
+
+## Versionado del modelo
+
+Desde `psets/proyecto/`, crea una nueva versión y exporta la que tenga el
+alias `produccion`:
+
+```bash
+python -m servicio.registrar_modelo --alpha 0.01
+python -m servicio.promover 1 \
+  --responsable 'Codex (ejecucion del laboratorio)' \
+  --motivo 'Version 1 supera la PR-AUC de validacion de version 2'
+python -m servicio.exportar_modelo
+```
+
+En el MLflow del devcontainer, la versión 1 tiene PR-AUC de validación
+0.039071 y el alias `produccion`; la versión 2 tiene 0.022726. El motivo y
+los pasos para volver a una versión anterior están en `docs/despliegue.md`.
+Mover el alias no modifica un contenedor en ejecución: después hay que
+exportar, reconstruir la imagen y reemplazarlo.
