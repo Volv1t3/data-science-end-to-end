@@ -181,6 +181,30 @@ def construir_preparacion(columnas: list[str]) -> ColumnTransformer:
     )
 
 
+def preparar_observacion_inferencia(
+    caracteristicas: dict[str, float | None], columnas: list[str]
+) -> pd.DataFrame:
+    """Ordena las ventanas SMART de la OBT igual que las columnas de entrenamiento.
+
+    Las ventanas de 7, 14 y 30 días se calculan antes, en la OBT. Una sola
+    observación no contiene el historial necesario para reconstruirlas.
+    """
+    if not columnas or len(columnas) != len(set(columnas)):
+        raise ValueError("La lista de características del modelo es inválida")
+    if not set(columnas).issubset(NUMERICAS):
+        raise ValueError("El modelo solicita características ajenas a la OBT MC1")
+    if set(caracteristicas).difference(NUMERICAS):
+        raise ValueError("La observación incluye características desconocidas")
+    faltantes = set(columnas).difference(caracteristicas)
+    if faltantes:
+        raise ValueError(f"Faltan características: {sorted(faltantes)}")
+    fila = pd.DataFrame([{nombre: caracteristicas[nombre] for nombre in columnas}])
+    fila = fila.apply(pd.to_numeric, errors="coerce").replace([np.inf, -np.inf], np.nan)
+    if fila.isna().any().any():
+        raise ValueError("Las características seleccionadas deben ser numéricas y completas")
+    return fila.astype("float64")
+
+
 def cargar_y_dividir(
     ruta: str | Path = RUTA_DATOS, *, max_fraccion_nulos: float = 0.05
 ) -> tuple[dict[str, tuple[pd.DataFrame, pd.Series]], list[str], pd.DataFrame]:
