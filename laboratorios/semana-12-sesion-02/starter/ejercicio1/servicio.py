@@ -11,6 +11,7 @@ La documentacion interactiva queda en el puerto 8000, ruta /docs.
 
 import os
 from datetime import datetime
+from typing import Optional
 
 import joblib
 import pandas as pd
@@ -28,17 +29,21 @@ modelo = None
 if os.path.exists(RUTA_MODELO):
     modelo = joblib.load(RUTA_MODELO)
 
-app = FastAPI(title="Tarifa estimada de taxis")
+app = FastAPI(title="TarifaEstimadaDeTaxis")
 
 
 class Viaje(BaseModel):
     """Lo que la app sabe de un viaje antes de que empiece."""
-    # TODO 1: declara cada dato que manda la app, con su tipo. La fecha (como
+    # [DONE] 1: declara cada dato que manda la app, con su tipo. La fecha (como
     # datetime, para que una fecha mal escrita se rechace) y las zonas son
     # obligatorias; distancia_km, pasajeros y metodo_pago pueden llegar
     # vacios (la preparacion los imputa), con valor por defecto None.
+    fecha_hora_inicio: datetime
     zona_origen: str
     zona_destino: str
+    distancia_km: Optional[float]
+    pasajeros: Optional[str]
+    metodo_pago: Optional[str]
 
 
 @app.get("/salud")
@@ -48,9 +53,14 @@ def salud():
 
 @app.post("/predecir")
 def predecir(viaje: Viaje):
-    # TODO 2: convierte el viaje en un DataFrame de una fila
+    # [DONE] 2: convierte el viaje en un DataFrame de una fila
     # (viaje.model_dump() lo da como diccionario), agrega las features y
     # estima la tarifa con el modelo.
-    tarifa = 0.0
+
+    dto = pd.DataFrame(viaje.model_dump())
+    transformed = agregar_features(dto)
+
+    #? Prediction
+    tarifa = modelo.predict(transformed[CATEGORICAS + NUMERICAS + YA_LISTAS])
 
     return {"tarifa_estimada": round(float(tarifa), 2)}
