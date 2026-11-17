@@ -37,3 +37,57 @@ Al descartar la inferencia en línea, el sistema pierde la capacidad de actualiz
 Esta limitación es aceptable dentro del alcance del proyecto, puesto que el modelo utiliza observaciones y características temporales de resolución diaria para estimar fallas en un horizonte de 30 días, buscando una anticipación mínima de siete días que permita planificar intervenciones preventivas.
 
 El sistema no pretende sustituir los mecanismos existentes de monitoreo y alerta inmediata, sino complementarlos mediante una clasificación periódica de riesgo que facilite la priorización del mantenimiento.
+
+## Versionado y registro
+
+El modelo registrado en el MLflow del devcontainer se llama
+`antes_de_que_falle_mc1_clasificador`. La versión **1** tiene el alias
+`produccion`, corresponde a la MLP original (`alpha=0.001`, corrida
+`e9376de97c95409b9413647691551266`) y obtuvo **PR-AUC de validación
+0.039071**. La versión **2** se entrenó con `alpha=0.01` sobre la misma muestra
+congelada y obtuvo 0.022726; permanece registrada para comparación, sin el
+alias. La métrica principal se guarda en cada corrida como
+`validacion_pr_auc`, junto con la huella de la muestra.
+
+El responsable del modelo y el equipo de operaciones de almacenamiento/SRE
+revisan la PR-AUC en la partición temporal de validación, la procedencia de
+los datos, el contrato de features y las pruebas del servicio. Una nueva
+versión debe igualar o superar la PR-AUC de producción antes de mover el
+alias; una caída requiere un rollback explícito. `servicio/promover.py`
+registra el motivo, el responsable, la fecha UTC, la versión previa y la
+métrica en etiquetas de la versión promovida. La promoción de la versión 1
+fue ejecutada por Codex para el laboratorio; no representa una aprobación
+operativa real.
+
+Desde `psets/proyecto/`, el ciclo de registro y despliegue es:
+
+```bash
+python -m servicio.registrar_modelo --alpha 0.01
+python -m servicio.promover 1 \
+  --responsable 'Codex (ejecucion del laboratorio)' \
+  --motivo 'Version 1 supera la PR-AUC de validacion de version 2'
+python -m servicio.exportar_modelo
+docker build -f servicio/Dockerfile -t mc1-servicio:version-1 .
+docker run --rm -p 8000:8000 mc1-servicio:version-1
+```
+
+El exportador consulta `models:/antes_de_que_falle_mc1_clasificador@produccion`
+y genera `servicio/modelo.joblib` y `servicio/modelo_version.txt`. La imagen
+incluye ambos archivos; no necesita MLflow durante la inferencia. Mover el
+alias no cambia una imagen que ya está corriendo: hay que exportar, construir
+la nueva imagen y sustituir el contenedor.
+
+Si una versión nueva se despliega y falla, se recupera el número de la
+versión anterior en MLflow y se vuelve a apuntar el alias, por ejemplo:
+
+```bash
+python -m servicio.promover 1 --rollback \
+  --responsable 'equipo de operaciones' \
+  --motivo 'Reversion de la version nueva por regresion observada'
+python -m servicio.exportar_modelo
+docker build -f servicio/Dockerfile -t mc1-servicio:rollback-1 .
+```
+
+Después se sustituye el contenedor por la imagen `rollback-1` y se comprueba
+que `/salud` y `/predecir` responden `version_modelo: "1"`. Las versiones
+anteriores y sus corridas permanecen en MLflow.

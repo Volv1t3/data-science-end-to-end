@@ -1,46 +1,49 @@
-"""Exporta a joblib la corrida final registrada por entrenar_modelos.py."""
+"""Exporta la versión con alias produccion y su número para la imagen."""
 
 from __future__ import annotations
 
 import argparse
-import json
 import os
 from pathlib import Path
 
 import joblib
 import mlflow
 import mlflow.sklearn
+from mlflow.tracking import MlflowClient
+
+from modelado.entrenar_modelos import MODELO_REGISTRADO
 
 
-PROYECTO = Path(__file__).resolve().parents[1]
-SELECCION = PROYECTO / "data/processed/modelo_final.json"
 SALIDA = Path(__file__).resolve().parent / "modelo.joblib"
+VERSION = SALIDA.with_name("modelo_version.txt")
 
 
-def exportar(run_id: str, salida: Path, tracking_uri: str) -> None:
+def exportar(salida: Path, version_archivo: Path, tracking_uri: str) -> str:
     mlflow.set_tracking_uri(tracking_uri)
-    corrida = mlflow.get_run(run_id)
+    version = MlflowClient().get_model_version_by_alias(MODELO_REGISTRADO, "produccion")
+    corrida = mlflow.get_run(version.run_id)
     if corrida.info.status != "FINISHED":
         raise ValueError("La corrida de MLflow no terminó correctamente")
-    modelo = mlflow.sklearn.load_model(f"runs:/{run_id}/pipeline_entrenado")
+    modelo = mlflow.sklearn.load_model(f"models:/{MODELO_REGISTRADO}@produccion")
     columnas = getattr(modelo, "feature_names_in_", None)
     if columnas is None:
         raise ValueError("El pipeline exportado no conserva los nombres de sus features")
-    paquete = {"modelo": modelo, "run_id": run_id, "columnas": list(columnas), "umbral": 0.5}
+    paquete = {"modelo": modelo, "run_id": version.run_id,
+               "version_modelo": str(version.version), "columnas": list(columnas), "umbral": 0.5}
     salida.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(paquete, salida)
-    print(f"Exportado {run_id} a {salida}")
+    version_archivo.write_text(f"{version.version}\n", encoding="utf-8")
+    print(f"Exportada versión {version.version} de {MODELO_REGISTRADO} a {salida}")
+    return str(version.version)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--run-id", help="ID explícito; por defecto usa modelo_final.json")
-    parser.add_argument("--selection", type=Path, default=SELECCION)
     parser.add_argument("--output", type=Path, default=SALIDA)
+    parser.add_argument("--version-file", type=Path, default=VERSION)
     parser.add_argument("--tracking-uri", default=os.getenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:5050"))
     args = parser.parse_args()
-    run_id = args.run_id or json.loads(args.selection.read_text(encoding="utf-8"))["run_id"]
-    exportar(run_id, args.output, args.tracking_uri)
+    exportar(args.output, args.version_file, args.tracking_uri)
 
 
 if __name__ == "__main__":

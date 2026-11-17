@@ -17,7 +17,7 @@ class ModeloPrueba:
 
 def paquete_prueba():
     return {"modelo": ModeloPrueba(), "columnas": [NUMERICAS[1], NUMERICAS[0]],
-            "umbral": 0.5, "run_id": "corrida-de-prueba"}
+            "umbral": 0.5, "run_id": "corrida-de-prueba", "version_modelo": "99"}
 
 
 def test_salud_informa_la_corrida(monkeypatch):
@@ -25,7 +25,8 @@ def test_salud_informa_la_corrida(monkeypatch):
     with TestClient(app) as cliente:
         respuesta = cliente.get("/salud")
     assert respuesta.status_code == 200
-    assert respuesta.json() == {"estado": "ok", "modelo_cargado": True, "run_id": "corrida-de-prueba"}
+    assert respuesta.json() == {"estado": "ok", "modelo_cargado": True,
+                              "run_id": "corrida-de-prueba", "version_modelo": "99"}
 
 
 def test_prediccion_valida_usa_orden_de_entrenamiento():
@@ -40,6 +41,7 @@ def test_prediccion_valida_usa_orden_de_entrenamiento():
         assert respuesta.json()["probabilidad_falla_30d"] == 0.8
         assert respuesta.json()["requiere_revision"] is True
         assert respuesta.json()["run_id"] == "corrida-de-prueba"
+        assert respuesta.json()["version_modelo"] == "99"
     finally:
         app.dependency_overrides.clear()
 
