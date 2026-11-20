@@ -6,27 +6,6 @@
 
 **Referencia de esta sesión:** *Designing Machine Learning Systems*, Cap. 8: Data Distribution Shifts and Monitoring.
 
-## Requisitos antes de esta sesión
-
-Nada nuevo que instalar. Los laboratorios de hoy son scripts. El Ejercicio 1 no necesita levantar uvicorn: `simular_noviembre.py` le manda las peticiones al servicio con `TestClient`, como las pruebas.
-
-## Antes de empezar
-
-A partir de la lectura previa:
-
-**Según el artículo, ¿por qué no alcanza con vigilar la salud y el volumen de peticiones del servicio? ¿Qué hay que medir además?**
-
-_(tu respuesta)_
-
-**El artículo dice que la verdad (ground truth) a veces llega con demora, o no llega. ¿Qué propone medir mientras tanto?**
-
-_(tu respuesta)_
-
-## Pregunta de apertura
-
-Tu servicio responde en unos milisegundos, `/salud` dice que todo está bien, y cada tarifa dice qué versión la calculó. ¿Qué le pasa a un modelo que responde rápido pero cada vez peor? ¿Cómo te enterarías?
-
-_(tu respuesta)_
 
 ## Ejercicio 1: la tarifa, instrumentada
 
@@ -43,37 +22,109 @@ pytest -v
 
 **Respuesta 1 (antes de los TODO):** los 1156 viajes recibieron su tarifa. ¿Qué dicen `/metricas` y `desempeno.py`? ¿Qué podrías afirmar sobre el servicio en noviembre?
 
-_(tu respuesta)_
+En este caso, la implementacion de `simular_noviembre.py` usado para calcular el valor de la tarifa de prueba de noviembre utiliza su propia version de la API alzada directamente desde el sistema de generacion de las tarifas, y no interactua con el sistema desplegado manualmente a traves de uvicorn, por lo tanto, el sistema, aunque existe un apartado de 
+metricas, no obtiene informacion desde la API continua, sino que utiliza informacion delimitada y efimera solo para este proceso. 
+
+```terminaloutput
+(.venv) vscode ➜ .../laboratorios/semana-13-sesion-02/starter/ejercicio1 (laboratorio/semana-13-02) $ python3 simular_noviembre.py 
+1156 viajes simulados, del 2026-11-02 al 2026-11-28
+Metricas del sistema: {'volumen_peticiones': 1159, 'errores_validacion_datos': 3, 'errores_servidor': 0, 'latencia_p95_ms': 3.19, 'latencia_p99_ms': 3.66}
+```
+
+ Como puede verse en el resultado de las metricas del sistema efimero, se registraron 1159 viajes de los cuales solo 1156 tuvieron una clasificacion, indicando 3 errores de validacion. Las solicitudes se ejecutaron con una latencia p95 de 3.19 ms por lo que el 95 de las solicitudes tuvieron un tiempo de respuesta menor a 3.19 ms en promedio. 
+
+Estos resultados nos indican que la implementacion del servicio es apropiada, y que las mtricas del sistema se registran correctamente. Tambien tome nota del resultado antes de hacer el TODO 1 que registra 
+las metricas, el resultado fue
+
+
+```terminaloutput
+(.venv) vscode ➜ .../laboratorios/semana-13-sesion-02/starter/ejercicio1 (laboratorio/semana-13-02) $ python3 simular_noviembre.py 
+1156 viajes simulados, del 2026-11-02 al 2026-11-28
+Metricas del sistema: {}
+```
+Durante noviembre, el servicio demostro su capacidad de responder a las solicitudes de predicciones de clientes con una latencia menor a los 3.19 ms en el 95 de las solicitudes. El sistema demostro su capacidad de defenderse frente a solcitudes con formatos incorrectos que pudieran causar problemas en la prediccion a traves de respuestas con errores de validacion.
 
 **Respuesta 2 (TODO 1 y 2):** antes de correr la simulación, ¿qué latencia p95 esperas, y cuántos errores de validación? ¿Esperas que la latencia cambie entre la primera y la última semana del mes?
 
-_(tu respuesta)_
+La latencia del modelo deberia ser muy baja, en los millisegundos  en general por el hecho de cargar un modelo liviano, y convertir un objeto pequeno de datos en las matrices necesarias para la inferencia. En este caso, no puedo dar con seguridad una cantidad de errores de validacion, el codigo indica que se generan tres solicitudes erroneas directamente, lo cual resultaria en 3 solicitudes incorrectas generadas, pero no puedo saber directamente cuantos errores habra. 
+
+Debido a que el modelo tiene que cargarse una vez durante inicializacion de la API, la latencia deberia reducirse a solamente la serializacion y deserializacion HTTP y la transformacion de los datos a los esperados por el modelo, por lo que la latencia deberia estandarizarse en un rango especifico cuando el modelo ya esta precargado en memoria.
+
 
 **Respuesta 3 (TODO 3):** el servicio devuelve `id_prediccion` y lo guarda en el registro. ¿Para qué lo necesita el sistema de cobros? ¿Qué pasaría si solo se guardaran la fecha y la tarifa estimada?
 
-_(tu respuesta)_
+El ID de clasificacion pertmie implementar un sistema de trazabilidad entre las aplicaciones de la empresa o clientes que dependan de las clasificaciones, y las clasificaciones registradas en el sistema. La aplicacion permite realizar una auditoria de los resultados sea internamente o por agentes externos que se perderian si solo se guardara la fecha y la tarifa estimada.
 
 **Respuesta 4 (TODO 4):** el MAE en prueba de la versión 1 fue 1.17. Antes de correr `desempeno.py`, ¿qué esperas para cada semana de noviembre?
 
-_(tu respuesta)_
+```terminaloutput
+(.venv) vscode ➜ .../laboratorios/semana-13-sesion-02/starter/ejercicio1 (laboratorio/semana-13-02) $ python3 entrenar.py 
+Version 1 guardada en modelo_tarifa.joblib, MAE en prueba 1.1695
+```
 
-**Lo que mostró el monitoreo:**
+Este fue el resultado del entrenamiento, para corroborar los datos de la pregunta. 
 
-_(anota la latencia p95, los errores de validación y de servidor, y el MAE de cada semana)_
+Teniendo en cuenta la naturaleza degenerativa de los modelos en produccion al estar expuestos a nuevas distribuciones de datos, y a distribuciones de estos nunca antes vistas, esperaria que el MAE se mantenga relativamente cerca del calculado durante la prueba del modelo, pero con una ligera tendencia a decrecer entre registros diarios. 
 
-## Durante el ConcepTest
+```terminaloutput
+(.venv) vscode ➜ .../laboratorios/semana-13-sesion-02/starter/ejercicio1 (laboratorio/semana-13-02) $ python3 desempeno.py
+===============================================Resultado Luego del Merge================================================
+                         id_prediccion  tarifa      prediccion_created_at  version_modelo    fecha_hora_inicio      zona_origen     zona_destino distancia_km pasajeros metodo_pago  tarifa_cobrada
+0     49a5ec6dde4f44a9a98f95abb4a155ed   14.86 2026-11-20 15:35:40.637269               1  2026-11-02 00:14:00          Midtown  Upper East Side         4.19      None     tarjeta           14.36
+1     b218541035394a8388dbfc2973d0faa9   70.27 2026-11-20 15:35:40.641697               1  2026-11-02 00:14:00      JFK Airport          Midtown        23.49       1.0     tarjeta           70.00
+2     e4ead672fd304e78950bc956e9ab6458   70.51 2026-11-20 15:35:40.645641               1  2026-11-02 02:21:00  Upper East Side      JFK Airport        31.02       2.0    efectivo           70.00
+3     5edb9155d1be4f8b8cad1f67c46530cf   16.11 2026-11-20 15:35:40.649393               1  2026-11-02 02:47:00  Upper East Side          Midtown         4.54       4.0     tarjeta           14.08
+4     24f4da6b11b84f2fad21720d8bd61fa5   28.31 2026-11-20 15:35:40.653072               1  2026-11-02 03:36:00  Upper East Side         Brooklyn         9.19       4.0     tarjeta           25.43
+...                                ...     ...                        ...             ...                  ...              ...              ...          ...       ...         ...             ...
+1151  1e1e4e62e2e046a6b4b17718e00b6641    6.53 2026-11-20 15:35:44.596085               1  2026-11-28 22:11:00  Upper East Side  Upper East Side         0.71       3.0    efectivo            5.50
+1152  d8715dd827c54157b09af04f87418f4e   22.09 2026-11-20 15:35:44.599392               1  2026-11-28 22:19:00          Midtown           Harlem         6.98       2.0     tarjeta           26.51
+1153  c3445d59c66d45dc83448a039ae76e62   20.25 2026-11-20 15:35:44.603062               1  2026-11-28 22:25:00          Midtown           Queens         6.12       1.0     tarjeta           23.68
+1154  74475a76bfef42119200a00f76b1d3b7   11.55 2026-11-20 15:35:44.606512               1  2026-11-28 22:58:00  Upper West Side  Upper West Side         2.65       2.0     tarjeta            9.34
+1155  ed165f6982a94f0da30ae39b4915ca2d   24.38 2026-11-20 15:35:44.609866               1  2026-11-28 23:04:00  Lower Manhattan  Upper East Side         8.17       1.0     tarjeta           26.66
 
-**Tu voto, antes de discutir en pareja** (A, B, C o D):
+[1156 rows x 11 columns]
+===============================================Resultado Luego del Merge================================================
 
-_(tu voto)_
+===========================================Resultado Luego del Error Absoluto===========================================
+                         id_prediccion  tarifa      prediccion_created_at  version_modelo    fecha_hora_inicio      zona_origen     zona_destino distancia_km pasajeros metodo_pago  tarifa_cobrada  error_absoluto
+0     49a5ec6dde4f44a9a98f95abb4a155ed   14.86 2026-11-20 15:35:40.637269               1  2026-11-02 00:14:00          Midtown  Upper East Side         4.19      None     tarjeta           14.36            0.50
+1     b218541035394a8388dbfc2973d0faa9   70.27 2026-11-20 15:35:40.641697               1  2026-11-02 00:14:00      JFK Airport          Midtown        23.49       1.0     tarjeta           70.00            0.27
+2     e4ead672fd304e78950bc956e9ab6458   70.51 2026-11-20 15:35:40.645641               1  2026-11-02 02:21:00  Upper East Side      JFK Airport        31.02       2.0    efectivo           70.00            0.51
+3     5edb9155d1be4f8b8cad1f67c46530cf   16.11 2026-11-20 15:35:40.649393               1  2026-11-02 02:47:00  Upper East Side          Midtown         4.54       4.0     tarjeta           14.08            2.03
+4     24f4da6b11b84f2fad21720d8bd61fa5   28.31 2026-11-20 15:35:40.653072               1  2026-11-02 03:36:00  Upper East Side         Brooklyn         9.19       4.0     tarjeta           25.43            2.88
+...                                ...     ...                        ...             ...                  ...              ...              ...          ...       ...         ...             ...             ...
+1151  1e1e4e62e2e046a6b4b17718e00b6641    6.53 2026-11-20 15:35:44.596085               1  2026-11-28 22:11:00  Upper East Side  Upper East Side         0.71       3.0    efectivo            5.50            1.03
+1152  d8715dd827c54157b09af04f87418f4e   22.09 2026-11-20 15:35:44.599392               1  2026-11-28 22:19:00          Midtown           Harlem         6.98       2.0     tarjeta           26.51            4.42
+1153  c3445d59c66d45dc83448a039ae76e62   20.25 2026-11-20 15:35:44.603062               1  2026-11-28 22:25:00          Midtown           Queens         6.12       1.0     tarjeta           23.68            3.43
+1154  74475a76bfef42119200a00f76b1d3b7   11.55 2026-11-20 15:35:44.606512               1  2026-11-28 22:58:00  Upper West Side  Upper West Side         2.65       2.0     tarjeta            9.34            2.21
+1155  ed165f6982a94f0da30ae39b4915ca2d   24.38 2026-11-20 15:35:44.609866               1  2026-11-28 23:04:00  Lower Manhattan  Upper East Side         8.17       1.0     tarjeta           26.66            2.28
 
-**Tu razonamiento:**
+[1156 rows x 12 columns]
+===========================================Resultado Luego del Error Absoluto===========================================
 
-_(tu respuesta)_
+==========================================Resultado Luego de Anadir la Semana===========================================
+                         id_prediccion  tarifa      prediccion_created_at  version_modelo   fecha_hora_inicio      zona_origen     zona_destino distancia_km pasajeros metodo_pago  tarifa_cobrada  error_absoluto      semana
+0     49a5ec6dde4f44a9a98f95abb4a155ed   14.86 2026-11-20 15:35:40.637269               1 2026-11-02 00:14:00          Midtown  Upper East Side         4.19      None     tarjeta           14.36            0.50  2026-11-02
+1     b218541035394a8388dbfc2973d0faa9   70.27 2026-11-20 15:35:40.641697               1 2026-11-02 00:14:00      JFK Airport          Midtown        23.49       1.0     tarjeta           70.00            0.27  2026-11-02
+2     e4ead672fd304e78950bc956e9ab6458   70.51 2026-11-20 15:35:40.645641               1 2026-11-02 02:21:00  Upper East Side      JFK Airport        31.02       2.0    efectivo           70.00            0.51  2026-11-02
+3     5edb9155d1be4f8b8cad1f67c46530cf   16.11 2026-11-20 15:35:40.649393               1 2026-11-02 02:47:00  Upper East Side          Midtown         4.54       4.0     tarjeta           14.08            2.03  2026-11-02
+4     24f4da6b11b84f2fad21720d8bd61fa5   28.31 2026-11-20 15:35:40.653072               1 2026-11-02 03:36:00  Upper East Side         Brooklyn         9.19       4.0     tarjeta           25.43            2.88  2026-11-02
+...                                ...     ...                        ...             ...                 ...              ...              ...          ...       ...         ...             ...             ...         ...
+1151  1e1e4e62e2e046a6b4b17718e00b6641    6.53 2026-11-20 15:35:44.596085               1 2026-11-28 22:11:00  Upper East Side  Upper East Side         0.71       3.0    efectivo            5.50            1.03  2026-11-23
+1152  d8715dd827c54157b09af04f87418f4e   22.09 2026-11-20 15:35:44.599392               1 2026-11-28 22:19:00          Midtown           Harlem         6.98       2.0     tarjeta           26.51            4.42  2026-11-23
+1153  c3445d59c66d45dc83448a039ae76e62   20.25 2026-11-20 15:35:44.603062               1 2026-11-28 22:25:00          Midtown           Queens         6.12       1.0     tarjeta           23.68            3.43  2026-11-23
+1154  74475a76bfef42119200a00f76b1d3b7   11.55 2026-11-20 15:35:44.606512               1 2026-11-28 22:58:00  Upper West Side  Upper West Side         2.65       2.0     tarjeta            9.34            2.21  2026-11-23
+1155  ed165f6982a94f0da30ae39b4915ca2d   24.38 2026-11-20 15:35:44.609866               1 2026-11-28 23:04:00  Lower Manhattan  Upper East Side         8.17       1.0     tarjeta           26.66            2.28  2026-11-23
 
-**Después de discutir en pareja, ¿cambiaste de voto? ¿Por qué?**
+[1156 rows x 13 columns]
+==========================================Resultado Luego de Anadir la Semana===========================================
+       semana  viajes       mae  veces_la_referencia
+0  2026-11-02     291  1.179244                 1.01
+1  2026-11-09     318  1.340346                 1.15
+2  2026-11-16     308  4.291591                 3.67
+3  2026-11-23     239  4.304226                 3.68
+```
 
-_(tu respuesta)_
 
 ## Ejercicio 2: el fraude, cuando la verdad tarda tres semanas
 
@@ -81,15 +132,24 @@ Solo o en pareja. Carpeta: [`starter/ejercicio2/`](./starter/ejercicio2/). El se
 
 **Respuesta 1:** el reporte da tres tipos de alerta. ¿Cuáles son de sistema y cuáles de modelo? ¿El día de la latencia alta coincide con alguna semana de recall bajo?
 
-_(tu respuesta)_
+El sistema reporta: 'la latencia p95 fue tal por cad dia con latencia superior' al limite de LATENCIA_MAXIMA_MS. El sistema envia dos notifiaciones dependiendo del tipo. El modelop envia una notificacion sobre la cantidad de alertas enviadas en un dia por cada dia con una tasa menor al 75% del limite, lo mismo hace para el recall.
 
 **Respuesta 2:** la tasa de alertas se puede calcular el mismo día; el recall, tres semanas después. ¿Qué semana mostró primero el problema la tasa de alertas, y cuándo lo confirmó el recall? ¿Por qué la tasa de alertas no alcanza para decir que el modelo empeoró?
 
-_(tu respuesta)_
+```terminaloutput
+Alertas:
+- sistema: el 2026-11-10 la latencia p95 fue 78.2 ms
+- modelo (indirecta): la semana del 2026-11-16 mando a revision 0.050 de los pagos
+- modelo (indirecta): la semana del 2026-11-23 mando a revision 0.046 de los pagos
+- modelo: la semana del 2026-11-16 detecto 0.276 de los fraudes
+```
+
+En este caso, la semana del 2026-11-10 mostro la primera alerta del sistema, mientras que la semana 2026-11-16 mostro la primera alerta 
+sobre la revision de pagos enviada. En este caso, esta misma semana reporto luego de dos semanas la deteccion de los fraudes.
 
 **Respuesta 3:** ¿por qué el reporte no muestra el recall de la semana del 23 de noviembre, si ya hay fraudes confirmados de esa semana?
 
-_(tu respuesta)_
+Hay fraudes confirmados, pero el analisis se ejecuta hasta el 29 de noviembre, y el rango de fechas requerido queda fuera del limite.
 
 **Si terminas antes:** cambia `HOY` a `"2026-11-30"` y vuelve a correr. ¿Qué semanas tienen recall? ¿Desde qué día el reporte puede mostrar la caída del recall de la semana del 16?
 
@@ -115,11 +175,20 @@ Una tabla con cada métrica que vigilas: si es de sistema o de modelo, de dónde
 
 **¿Cuánto tarda en llegar la verdad en tu proyecto, y qué métrica te avisa mientras tanto?**
 
-_(tu respuesta)_
+`TARGET_30D` no puede darse por finalizado hasta que transcurran 30 días
+desde `OBSERVATION_DATE`, más el tiempo de ingesta de la OBT. Mientras llega,
+el reporte vigila la tasa semanal de SSD enviados a revisión por versión.
+Para la versión 1, la referencia de validación es 3,47 % al umbral 0,50;
+una caída o subida marcada avisa de un cambio en las decisiones, pero no
+demuestra que haya cambiado la capacidad de detectar fallas. La PR-AUC solo
+se calcula cuando hay etiquetas maduras y ambas clases en el período.
 
 **¿Qué falla de tu modelo no vería ninguna de tus métricas de sistema?**
 
-_(tu respuesta)_
+Una caída de PR-AUC por cambios en la relación entre telemetría SMART y
+fallas: el servicio podría responder en milisegundos, sin errores 422 ni 5xx,
+y aun así dejar de priorizar los SSD que fallarán. La latencia y la
+disponibilidad no comparan las probabilidades con la verdad posterior.
 
 ## Antes de la próxima sesión
 

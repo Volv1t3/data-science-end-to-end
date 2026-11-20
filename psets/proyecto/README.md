@@ -95,7 +95,8 @@ Desde `psets/proyecto/`, después de entrenar:
 ```bash
 python -m servicio.exportar_modelo --tracking-uri http://127.0.0.1:5050
 docker build -f servicio/Dockerfile -t mc1-servicio .
-docker run --rm -p 8000:8000 mc1-servicio
+docker run --rm -p 8000:8000 \
+  -v "$(pwd)/monitoreo:/app/monitoreo" mc1-servicio
 ```
 
 `exportar_modelo.py` consulta el alias `produccion` de
@@ -135,11 +136,12 @@ curl -X POST http://127.0.0.1:8000/predecir \
 ```
 
 La petición generada contiene `ssd_key`, `observation_date` y las 41 ventanas
-SMART seleccionadas, sin `TARGET_30D`. En esta reproducción se usó el puerto
-18000 del devcontainer porque 8000 ya estaba ocupado; la respuesta fue:
+SMART seleccionadas, sin `TARGET_30D`. En una prueba del servicio instrumentado
+se usó el puerto 18002 del devcontainer porque 8000 ya estaba ocupado; la
+respuesta fue:
 
 ```json
-{"ssd_key":"000134b167e1ff263245170d1a1aeb0aa49e8f6a4265781229acfcb425dd2ee4","observation_date":"2019-11-05","probabilidad_falla_30d":0.046156090183027146,"requiere_revision":false,"run_id":"e9376de97c95409b9413647691551266","version_modelo":"1"}
+{"id_prediccion":"f2dddc71ae3e4d96a30cdd3cc8536f84","ssd_key":"000134b167e1ff263245170d1a1aeb0aa49e8f6a4265781229acfcb425dd2ee4","observation_date":"2019-11-05","probabilidad_falla_30d":0.046156090183027146,"requiere_revision":false,"run_id":"e9376de97c95409b9413647691551266","version_modelo":"1"}
 ```
 
 ## Versionado del modelo
@@ -160,3 +162,17 @@ En el MLflow del devcontainer, la versión 1 tiene PR-AUC de validación
 los pasos para volver a una versión anterior están en `docs/despliegue.md`.
 Mover el alias no modifica un contenedor en ejecución: después hay que
 exportar, reconstruir la imagen y reemplazarlo.
+
+## Cómo monitorear el servicio
+
+`GET /metricas` informa volumen, errores 422 y 5xx, y latencias p50/p95 de
+las llamadas a `/predecir` del proceso actual. Cada predicción exitosa
+devuelve `id_prediccion` y queda en `monitoreo/predicciones.jsonl` con su
+momento, versión, entrada y salida. Al ejecutar el contenedor, monta
+`monitoreo/` como volumen para conservar ese registro.
+
+Desde `psets/proyecto/`, `python -m monitoreo.desempeno` resume de inmediato
+la tasa de alertas por semana y versión. Con `--verdad` apuntando a un CSV
+finalizado de la OBT, calcula también PR-AUC cuando cada observación ha
+completado los 30 días de seguimiento. Las métricas, umbrales, comandos y
+limitaciones se detallan en [`docs/monitoreo.md`](docs/monitoreo.md).
