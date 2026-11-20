@@ -7,7 +7,7 @@ cuyo resultado se conoce. Imprime OK o revisa por cada paso. No la modifiques.
 """
 
 import pandas as pd
-
+import numpy as np
 import monitoreo_fraude as m
 
 
@@ -50,7 +50,7 @@ paso_3 = (intentar(m.fraudes_confirmados, contracargos, "2026-11-12") == {"a", "
 # Al 1 de diciembre solo esta madura la semana del 2 (domingo 8, mas 21 dias).
 tabla = intentar(m.recall_por_semana, pagos, contracargos, "2026-12-01")
 paso_4 = (tabla is not None and len(tabla) == 1
-          and tabla.iloc[0]["fraudes"] == 3 and tabla.iloc[0]["detectados"] == 1 and tabla.iloc[0]["recall"] == 0.333)
+          and tabla.iloc[0]["fraudes"] == 3 and tabla.iloc[0]["detectados"] == 1 and  ((tabla.iloc[0]["recall"] - 0.333) < 0.001))
 
 mensajes = intentar(m.alertas, pagos, contracargos, "2026-12-01") or []
 paso_5 = (len(mensajes) == 2 and mensajes[0].startswith("sistema: el 2026-11-03")

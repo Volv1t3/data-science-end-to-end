@@ -132,15 +132,24 @@ Solo o en pareja. Carpeta: [`starter/ejercicio2/`](./starter/ejercicio2/). El se
 
 **Respuesta 1:** el reporte da tres tipos de alerta. ¿Cuáles son de sistema y cuáles de modelo? ¿El día de la latencia alta coincide con alguna semana de recall bajo?
 
-_(tu respuesta)_
+El sistema reporta: 'la latencia p95 fue tal por cad dia con latencia superior' al limite de LATENCIA_MAXIMA_MS. El sistema envia dos notifiaciones dependiendo del tipo. El modelop envia una notificacion sobre la cantidad de alertas enviadas en un dia por cada dia con una tasa menor al 75% del limite, lo mismo hace para el recall.
 
 **Respuesta 2:** la tasa de alertas se puede calcular el mismo día; el recall, tres semanas después. ¿Qué semana mostró primero el problema la tasa de alertas, y cuándo lo confirmó el recall? ¿Por qué la tasa de alertas no alcanza para decir que el modelo empeoró?
 
-_(tu respuesta)_
+```terminaloutput
+Alertas:
+- sistema: el 2026-11-10 la latencia p95 fue 78.2 ms
+- modelo (indirecta): la semana del 2026-11-16 mando a revision 0.050 de los pagos
+- modelo (indirecta): la semana del 2026-11-23 mando a revision 0.046 de los pagos
+- modelo: la semana del 2026-11-16 detecto 0.276 de los fraudes
+```
+
+En este caso, la semana del 2026-11-10 mostro la primera alerta del sistema, mientras que la semana 2026-11-16 mostro la primera alerta 
+sobre la revision de pagos enviada. En este caso, esta misma semana reporto luego de dos semanas la deteccion de los fraudes.
 
 **Respuesta 3:** ¿por qué el reporte no muestra el recall de la semana del 23 de noviembre, si ya hay fraudes confirmados de esa semana?
 
-_(tu respuesta)_
+Hay fraudes confirmados, pero el analisis se ejecuta hasta el 29 de noviembre, y el rango de fechas requerido queda fuera del limite.
 
 **Si terminas antes:** cambia `HOY` a `"2026-11-30"` y vuelve a correr. ¿Qué semanas tienen recall? ¿Desde qué día el reporte puede mostrar la caída del recall de la semana del 16?
 
