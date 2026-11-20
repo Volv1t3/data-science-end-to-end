@@ -175,11 +175,20 @@ Una tabla con cada métrica que vigilas: si es de sistema o de modelo, de dónde
 
 **¿Cuánto tarda en llegar la verdad en tu proyecto, y qué métrica te avisa mientras tanto?**
 
-_(tu respuesta)_
+`TARGET_30D` no puede darse por finalizado hasta que transcurran 30 días
+desde `OBSERVATION_DATE`, más el tiempo de ingesta de la OBT. Mientras llega,
+el reporte vigila la tasa semanal de SSD enviados a revisión por versión.
+Para la versión 1, la referencia de validación es 3,47 % al umbral 0,50;
+una caída o subida marcada avisa de un cambio en las decisiones, pero no
+demuestra que haya cambiado la capacidad de detectar fallas. La PR-AUC solo
+se calcula cuando hay etiquetas maduras y ambas clases en el período.
 
 **¿Qué falla de tu modelo no vería ninguna de tus métricas de sistema?**
 
-_(tu respuesta)_
+Una caída de PR-AUC por cambios en la relación entre telemetría SMART y
+fallas: el servicio podría responder en milisegundos, sin errores 422 ni 5xx,
+y aun así dejar de priorizar los SSD que fallarán. La latencia y la
+disponibilidad no comparan las probabilidades con la verdad posterior.
 
 ## Antes de la próxima sesión
 
